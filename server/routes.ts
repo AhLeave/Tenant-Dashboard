@@ -186,13 +186,24 @@ export async function registerRoutes(
     const tenant = await storage.getTenant(tenantId);
     if (!tenant) return res.status(404).json({ message: "Tenant not found" });
 
+    const [openHour, openMinute] = tenant.orderOpenTime.split(":").map(Number);
     const [cutoffHour, cutoffMinute] = tenant.cutoffTime.split(":").map(Number);
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const openMinutes = openHour * 60 + openMinute;
     const cutoffMinutes = cutoffHour * 60 + cutoffMinute;
 
-    if (currentMinutes >= cutoffMinutes) {
-      return res.status(422).json({ message: "Order cutoff time has passed. Please try again tomorrow." });
+    let isOpen: boolean;
+    if (openMinutes < cutoffMinutes) {
+      isOpen = currentMinutes >= openMinutes && currentMinutes < cutoffMinutes;
+    } else {
+      isOpen = currentMinutes >= openMinutes || currentMinutes < cutoffMinutes;
+    }
+
+    if (!isOpen) {
+      return res.status(422).json({
+        message: `Ordering is currently closed. Orders can only be placed between ${tenant.orderOpenTime} and ${tenant.cutoffTime}.`,
+      });
     }
 
     const users = await storage.getUsersByTenant(tenantId);

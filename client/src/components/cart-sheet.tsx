@@ -56,8 +56,8 @@ export function CartSheet({ tenantId, selectedLocationId, locations }: CartSheet
       }, 2000);
     },
     onError: (err: Error) => {
-      if (err.message.includes("Order cutoff time has passed")) {
-        setCutoffError("Order cutoff time has passed. Please try again tomorrow.");
+      if (err.message.includes("Ordering is currently closed") || err.message.includes("Order cutoff time has passed")) {
+        setCutoffError(err.message);
       } else {
         setCutoffError(null);
         toast({

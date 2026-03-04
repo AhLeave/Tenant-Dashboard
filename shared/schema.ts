@@ -12,6 +12,7 @@ export const tenants = pgTable("tenants", {
   logoUrl: text("logo_url"),
   subdomain: text("subdomain").notNull().unique(),
   cutoffTime: text("cutoff_time").notNull().default("07:00"),
+  orderOpenTime: text("order_open_time").notNull().default("12:00"),
 });
 
 export const users = pgTable("users", {

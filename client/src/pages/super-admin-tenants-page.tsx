@@ -19,6 +19,7 @@ import type { Tenant } from "@shared/schema";
 const tenantFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   subdomain: z.string().min(1, "Subdomain is required").regex(/^[a-z0-9-]+$/, "Only lowercase letters, numbers, and hyphens"),
+  orderOpenTime: z.string().regex(/^\d{2}:\d{2}$/, "Format must be HH:MM"),
   cutoffTime: z.string().regex(/^\d{2}:\d{2}$/, "Format must be HH:MM"),
 });
 type TenantFormValues = z.infer<typeof tenantFormSchema>;
@@ -40,6 +41,7 @@ function TenantFormDialog({
     defaultValues: {
       name: tenant?.name ?? "",
       subdomain: tenant?.subdomain ?? "",
+      orderOpenTime: tenant?.orderOpenTime ?? "12:00",
       cutoffTime: tenant?.cutoffTime ?? "07:00",
     },
   });
@@ -108,6 +110,19 @@ function TenantFormDialog({
                   <FormLabel>Subdomain</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g. acme-hospital" {...field} data-testid="input-tenant-subdomain" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="orderOpenTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Order Open Time</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} data-testid="input-tenant-open-time" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -208,6 +223,7 @@ export default function SuperAdminTenantsPage() {
                   <TableHead>ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Subdomain</TableHead>
+                  <TableHead>Open Time</TableHead>
                   <TableHead>Cutoff Time</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -218,6 +234,7 @@ export default function SuperAdminTenantsPage() {
                     <TableCell><Skeleton className="h-4 w-10" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-24" /></TableCell>
                   </TableRow>
@@ -251,6 +268,7 @@ export default function SuperAdminTenantsPage() {
                   <TableHead>ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Subdomain</TableHead>
+                  <TableHead>Open Time</TableHead>
                   <TableHead>Cutoff Time</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -263,6 +281,7 @@ export default function SuperAdminTenantsPage() {
                     </TableCell>
                     <TableCell className="font-medium">{t.name}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{t.subdomain}</TableCell>
+                    <TableCell className="text-sm">{t.orderOpenTime}</TableCell>
                     <TableCell className="text-sm">{t.cutoffTime}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
