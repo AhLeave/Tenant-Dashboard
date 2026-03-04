@@ -13,7 +13,8 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - **Tenant**: id, name, logo_url, subdomain, cutoff_time (text, default '07:00')
 - **User**: id, tenant_id, role (SUPER_ADMIN/TENANT_ADMIN/WARD_MANAGER/WAREHOUSE), email
 - **Location**: id, tenant_id, name
-- **Product**: id, tenant_id, name, sku, price (stored in cents)
+- **Product**: id, tenant_id, name, sku, price (stored in cents), group (nullable text)
+- **ProductAvailability**: id, product_id (FK products, cascade), location_id (FK locations, cascade) — junction table populated from Excel YES/NO matrix
 - **Order**: id, tenant_id, location_id, user_id, status, created_at
 - **OrderItem**: id, order_id (FK orders, cascade delete), product_id (FK products), quantity
 
@@ -35,7 +36,7 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - GET `/api/tenants/:id` - Get tenant details
 - GET/POST `/api/tenants/:tenantId/users` - List/create users
 - GET/POST `/api/tenants/:tenantId/locations` - List/create locations
-- GET/POST `/api/tenants/:tenantId/products` - List/create products
+- GET/POST `/api/tenants/:tenantId/products` - List/create products (supports ?locationId filter via product_availabilities join)
 - POST `/api/tenants/:tenantId/products/bulk` - Bulk insert products (body: { products: [{ name, sku, price }] })
 - GET/POST `/api/tenants/:tenantId/orders` - List/create orders (supports ?locationId filter)
 - GET/POST `/api/orders/:orderId/items` - List/create order items

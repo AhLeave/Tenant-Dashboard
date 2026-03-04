@@ -129,7 +129,7 @@ function AppContent() {
               <InventoryImportPage tenantId={activeTenantId} />
             </Route>
             <Route path="/inventory">
-              <InventoryPage tenantId={activeTenantId} />
+              <InventoryPage tenantId={activeTenantId} selectedLocationId={selectedLocationId} />
             </Route>
             <Route path="/orders">
               <OrdersPage tenantId={activeTenantId} selectedLocationId={selectedLocationId} />

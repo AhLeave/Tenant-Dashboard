@@ -36,6 +36,12 @@ export const products = pgTable("products", {
   group: text("group"),
 });
 
+export const productAvailabilities = pgTable("product_availabilities", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  productId: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  locationId: integer("location_id").notNull().references(() => locations.id, { onDelete: "cascade" }),
+});
+
 export const orders = pgTable("orders", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   tenantId: integer("tenant_id").notNull().references(() => tenants.id),
@@ -52,6 +58,8 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
 });
 
+export const insertProductAvailabilitySchema = createInsertSchema(productAvailabilities).omit({ id: true });
+
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
 export const insertLocationSchema = createInsertSchema(locations).omit({ id: true });
@@ -65,6 +73,9 @@ export type InsertLocation = z.infer<typeof insertLocationSchema>;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
+
+export type ProductAvailability = typeof productAvailabilities.$inferSelect;
+export type InsertProductAvailability = z.infer<typeof insertProductAvailabilitySchema>;
 
 export type Tenant = typeof tenants.$inferSelect;
 export type User = typeof users.$inferSelect;

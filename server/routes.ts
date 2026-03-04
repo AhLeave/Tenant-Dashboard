@@ -50,8 +50,15 @@ export async function registerRoutes(
   });
 
   app.get("/api/tenants/:tenantId/products", async (req, res) => {
-    const prods = await storage.getProductsByTenant(Number(req.params.tenantId));
-    res.json(prods);
+    const tenantId = Number(req.params.tenantId);
+    const locationId = req.query.locationId;
+    if (locationId) {
+      const prods = await storage.getProductsByLocation(tenantId, Number(locationId));
+      res.json(prods);
+    } else {
+      const prods = await storage.getProductsByTenant(tenantId);
+      res.json(prods);
+    }
   });
 
   app.post("/api/tenants/:tenantId/products", async (req, res) => {

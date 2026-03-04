@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
   type Tenant, type InsertTenant, tenants,
@@ -7,6 +7,7 @@ import {
   type Product, type InsertProduct, products,
   type Order, type InsertOrder, orders,
   type OrderItem, type InsertOrderItem, orderItems,
+  type InsertProductAvailability, productAvailabilities,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -23,8 +24,11 @@ export interface IStorage {
   createLocation(location: InsertLocation): Promise<Location>;
 
   getProductsByTenant(tenantId: number): Promise<Product[]>;
+  getProductsByLocation(tenantId: number, locationId: number): Promise<Product[]>;
   getProduct(id: number): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
+  bulkCreateProducts(products: InsertProduct[]): Promise<Product[]>;
+  bulkCreateProductAvailabilities(entries: InsertProductAvailability[]): Promise<void>;
 
   getOrdersByTenant(tenantId: number): Promise<Order[]>;
   getOrdersByLocation(tenantId: number, locationId: number): Promise<Order[]>;
@@ -33,8 +37,6 @@ export interface IStorage {
 
   getOrderItemsByOrder(orderId: number): Promise<OrderItem[]>;
   createOrderItem(item: InsertOrderItem): Promise<OrderItem>;
-
-  bulkCreateProducts(products: InsertProduct[]): Promise<Product[]>;
 }
 
 const db = drizzle(process.env.DATABASE_URL!);
@@ -86,6 +88,30 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(products).where(eq(products.tenantId, tenantId));
   }
 
+  async getProductsByLocation(tenantId: number, locationId: number): Promise<Product[]> {
+    return db
+      .select({
+        id: products.id,
+        tenantId: products.tenantId,
+        name: products.name,
+        sku: products.sku,
+        price: products.price,
+        group: products.group,
+      })
+      .from(products)
+      .innerJoin(
+        productAvailabilities,
+        eq(products.id, productAvailabilities.productId)
+      )
+      .where(
+        and(
+          eq(products.tenantId, tenantId),
+          eq(productAvailabilities.locationId, locationId)
+        )
+      )
+      .orderBy(products.name);
+  }
+
   async getProduct(id: number): Promise<Product | undefined> {
     const [product] = await db.select().from(products).where(eq(products.id, id));
     return product;
@@ -94,6 +120,19 @@ export class DatabaseStorage implements IStorage {
   async createProduct(product: InsertProduct): Promise<Product> {
     const [created] = await db.insert(products).values(product).returning();
     return created;
+  }
+
+  async bulkCreateProducts(productList: InsertProduct[]): Promise<Product[]> {
+    if (productList.length === 0) return [];
+    return db.insert(products).values(productList).returning();
+  }
+
+  async bulkCreateProductAvailabilities(entries: InsertProductAvailability[]): Promise<void> {
+    if (entries.length === 0) return;
+    const BATCH = 200;
+    for (let i = 0; i < entries.length; i += BATCH) {
+      await db.insert(productAvailabilities).values(entries.slice(i, i + BATCH));
+    }
   }
 
   async getOrdersByTenant(tenantId: number): Promise<Order[]> {
@@ -116,11 +155,6 @@ export class DatabaseStorage implements IStorage {
 
   async getOrderItemsByOrder(orderId: number): Promise<OrderItem[]> {
     return db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
-  }
-
-  async bulkCreateProducts(productList: InsertProduct[]): Promise<Product[]> {
-    if (productList.length === 0) return [];
-    return db.insert(products).values(productList).returning();
   }
 
   async createOrderItem(item: InsertOrderItem): Promise<OrderItem> {
