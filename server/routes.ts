@@ -118,7 +118,7 @@ export async function registerRoutes(
     const cutoffMinutes = cutoffHour * 60 + cutoffMinute;
 
     if (currentMinutes >= cutoffMinutes) {
-      return res.status(422).json({ message: "Order cutoff time has passed." });
+      return res.status(422).json({ message: "Order cutoff time has passed. Please try again tomorrow." });
     }
 
     const users = await storage.getUsersByTenant(tenantId);
