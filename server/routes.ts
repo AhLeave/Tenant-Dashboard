@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import type { ReportFilters } from "./storage";
 import { insertTenantSchema, insertUserSchema, insertLocationSchema, insertProductSchema, insertOrderSchema, insertOrderItemSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
+import { sendEmail } from "./lib/email";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -502,6 +503,33 @@ export async function registerRoutes(
     req.session.destroy(() => {
       res.status(204).send();
     });
+  });
+
+  app.get("/api/test-email", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Unauthorized" });
+    if (req.session.user.role !== "TENANT_ADMIN" && req.session.user.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const testRecipient = "YOUR_EMAIL_HERE@example.com";
+
+    const result = await sendEmail(
+      testRecipient,
+      "CUH Inventory App — Email Integration Test",
+      `
+        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#fff;border-radius:8px;border:1px solid #e5e7eb;">
+          <h2 style="color:#1d4ed8;margin:0 0 12px;">Email Integration Working!</h2>
+          <p style="color:#374151;margin:0 0 8px;">Your CUH Inventory App email integration is working correctly.</p>
+          <p style="color:#6b7280;font-size:13px;margin:0;">This test was sent via Resend from the Reports page.</p>
+        </div>
+      `
+    );
+
+    if (!result.success) {
+      return res.status(500).json({ message: "Email failed to send.", error: result.error });
+    }
+
+    res.json({ message: `Test email sent to ${testRecipient}` });
   });
 
   app.get("/api/auth/me", (req, res) => {

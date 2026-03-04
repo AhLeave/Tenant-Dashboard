@@ -19,7 +19,7 @@ import {
 import {
   BarChart3, ChevronDown, Download, FileX, Loader2, RefreshCw,
   ChevronLeft, ChevronRight, CalendarClock, Trash2, Plus, ChevronUp,
-  Receipt,
+  Receipt, Mail,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Location, ReportSchedule, InvoicingLocation } from "@shared/schema";
@@ -708,6 +708,7 @@ function ScheduleDialog({ tenantId, open, onClose }: { tenantId: number; open: b
 
 export default function ReportsPage({ tenantId }: ReportsPageProps) {
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const { toast } = useToast();
 
   const { data: locations = [] } = useQuery<Location[]>({
     queryKey: ["/api/tenants", tenantId, "locations"],
@@ -715,6 +716,17 @@ export default function ReportsPage({ tenantId }: ReportsPageProps) {
 
   const { data: productGroups = [] } = useQuery<string[]>({
     queryKey: [`/api/tenants/${tenantId}/products/groups`],
+  });
+
+  const testEmailMutation = useMutation({
+    mutationFn: () => apiRequest("GET", "/api/test-email"),
+    onSuccess: async (res) => {
+      const data = await res.json();
+      toast({ title: "Email sent!", description: data.message });
+    },
+    onError: async (err: Error) => {
+      toast({ title: "Email failed", description: err.message, variant: "destructive" });
+    },
   });
 
   return (
@@ -729,10 +741,24 @@ export default function ReportsPage({ tenantId }: ReportsPageProps) {
             Analyze order history and generate invoicing for cross-charging.
           </p>
         </div>
-        <Button variant="outline" onClick={() => setScheduleOpen(true)} data-testid="button-schedule-report">
-          <CalendarClock className="h-4 w-4 mr-2" />
-          Schedule Report
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => testEmailMutation.mutate()}
+            disabled={testEmailMutation.isPending}
+            data-testid="button-test-email"
+          >
+            {testEmailMutation.isPending
+              ? <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              : <Mail className="h-4 w-4 mr-2" />
+            }
+            Test Email Connection
+          </Button>
+          <Button variant="outline" onClick={() => setScheduleOpen(true)} data-testid="button-schedule-report">
+            <CalendarClock className="h-4 w-4 mr-2" />
+            Schedule Report
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="order-report">
