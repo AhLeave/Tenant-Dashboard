@@ -1,38 +1,112 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { eq, and } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
+import {
+  type Tenant, type InsertTenant, tenants,
+  type User, type InsertUser, users,
+  type Location, type InsertLocation, locations,
+  type Product, type InsertProduct, products,
+  type Order, type InsertOrder, orders,
+} from "@shared/schema";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getTenants(): Promise<Tenant[]>;
+  getTenant(id: number): Promise<Tenant | undefined>;
+  createTenant(tenant: InsertTenant): Promise<Tenant>;
+
+  getUsersByTenant(tenantId: number): Promise<User[]>;
+  getUser(id: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+
+  getLocationsByTenant(tenantId: number): Promise<Location[]>;
+  getLocation(id: number): Promise<Location | undefined>;
+  createLocation(location: InsertLocation): Promise<Location>;
+
+  getProductsByTenant(tenantId: number): Promise<Product[]>;
+  getProduct(id: number): Promise<Product | undefined>;
+  createProduct(product: InsertProduct): Promise<Product>;
+
+  getOrdersByTenant(tenantId: number): Promise<Order[]>;
+  getOrdersByLocation(tenantId: number, locationId: number): Promise<Order[]>;
+  getOrder(id: number): Promise<Order | undefined>;
+  createOrder(order: InsertOrder): Promise<Order>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+const db = drizzle(process.env.DATABASE_URL!);
 
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getTenants(): Promise<Tenant[]> {
+    return db.select().from(tenants);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getTenant(id: number): Promise<Tenant | undefined> {
+    const [tenant] = await db.select().from(tenants).where(eq(tenants.id, id));
+    return tenant;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async createTenant(tenant: InsertTenant): Promise<Tenant> {
+    const [created] = await db.insert(tenants).values(tenant).returning();
+    return created;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+  async getUsersByTenant(tenantId: number): Promise<User[]> {
+    return db.select().from(users).where(eq(users.tenantId, tenantId));
+  }
+
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const [created] = await db.insert(users).values(user).returning();
+    return created;
+  }
+
+  async getLocationsByTenant(tenantId: number): Promise<Location[]> {
+    return db.select().from(locations).where(eq(locations.tenantId, tenantId));
+  }
+
+  async getLocation(id: number): Promise<Location | undefined> {
+    const [location] = await db.select().from(locations).where(eq(locations.id, id));
+    return location;
+  }
+
+  async createLocation(location: InsertLocation): Promise<Location> {
+    const [created] = await db.insert(locations).values(location).returning();
+    return created;
+  }
+
+  async getProductsByTenant(tenantId: number): Promise<Product[]> {
+    return db.select().from(products).where(eq(products.tenantId, tenantId));
+  }
+
+  async getProduct(id: number): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
+  }
+
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const [created] = await db.insert(products).values(product).returning();
+    return created;
+  }
+
+  async getOrdersByTenant(tenantId: number): Promise<Order[]> {
+    return db.select().from(orders).where(eq(orders.tenantId, tenantId));
+  }
+
+  async getOrdersByLocation(tenantId: number, locationId: number): Promise<Order[]> {
+    return db.select().from(orders).where(and(eq(orders.tenantId, tenantId), eq(orders.locationId, locationId)));
+  }
+
+  async getOrder(id: number): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    return order;
+  }
+
+  async createOrder(order: InsertOrder): Promise<Order> {
+    const [created] = await db.insert(orders).values(order).returning();
+    return created;
+  }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
