@@ -21,6 +21,7 @@ const mainItems = [
 ];
 
 const adminItems = [
+  { title: "Manage Users", url: "/admin/users", icon: Users },
   { title: "Manage Products", url: "/admin/inventory", icon: ShieldCheck },
   { title: "Manage Locations", url: "/admin/locations", icon: MapPinned },
   { title: "Reports", url: "/reports", icon: BarChart3 },

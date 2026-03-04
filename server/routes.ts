@@ -328,6 +328,80 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  const adminUserCreateSchema = z.object({
+    email: z.string().email("Valid email required"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    role: z.enum(["TENANT_ADMIN", "WARD_MANAGER", "WAREHOUSE"]),
+  });
+
+  const adminUserUpdateSchema = z.object({
+    email: z.string().email().optional(),
+    role: z.enum(["TENANT_ADMIN", "WARD_MANAGER", "WAREHOUSE"]).optional(),
+    password: z.string().min(6).optional(),
+  });
+
+  type SessionUser = { id: number; email: string; role: string; tenantId: number | null } | undefined;
+  function isTenantAdminForTenant(sessionUser: SessionUser, tenantId: number): boolean {
+    if (!sessionUser) return false;
+    if (sessionUser.role === "SUPER_ADMIN") return true;
+    return sessionUser.role === "TENANT_ADMIN" && sessionUser.tenantId === tenantId;
+  }
+
+  app.get("/api/tenants/:tenantId/admin/users", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    if (!isTenantAdminForTenant(req.session.user, tenantId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const userList = await storage.getUsersByTenant(tenantId);
+    res.json(userList);
+  });
+
+  app.post("/api/tenants/:tenantId/admin/users", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    if (!isTenantAdminForTenant(req.session.user, tenantId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const parsed = adminUserCreateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const { password, ...userData } = parsed.data;
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    const user = await storage.createUser({ ...userData, tenantId, passwordHash });
+    res.status(201).json(user);
+  });
+
+  app.put("/api/tenants/:tenantId/admin/users/:userId", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    if (!isTenantAdminForTenant(req.session.user, tenantId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const userId = Number(req.params.userId);
+    const tenantUsers = await storage.getUsersByTenant(tenantId);
+    if (!tenantUsers.find(u => u.id === userId)) {
+      return res.status(404).json({ message: "User not found in this tenant." });
+    }
+    const parsed = adminUserUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const { password, ...rest } = parsed.data;
+    const updateData: Record<string, unknown> = { ...rest };
+    if (password) updateData.passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    const user = await storage.updateUser(userId, updateData as Parameters<typeof storage.updateUser>[1]);
+    res.json(user);
+  });
+
+  app.delete("/api/tenants/:tenantId/admin/users/:userId", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    if (!isTenantAdminForTenant(req.session.user, tenantId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const userId = Number(req.params.userId);
+    const tenantUsers = await storage.getUsersByTenant(tenantId);
+    const target = tenantUsers.find(u => u.id === userId);
+    if (!target) return res.status(404).json({ message: "User not found in this tenant." });
+    if (target.role === "SUPER_ADMIN") return res.status(403).json({ message: "Cannot delete Super Admin users." });
+    await storage.deleteUser(userId);
+    res.status(204).send();
+  });
+
   app.get("/api/tenants/:tenantId/products/groups", async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     const groups = await storage.getProductGroups(tenantId);

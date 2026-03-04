@@ -25,6 +25,7 @@ import InventoryImportPage from "@/pages/inventory-import-page";
 import OrdersPage from "@/pages/orders-page";
 import AdminInventoryPage from "@/pages/admin-inventory-page";
 import AdminLocationsPage from "@/pages/admin-locations-page";
+import AdminUsersPage from "@/pages/admin-users-page";
 import SuperAdminTenantsPage from "@/pages/super-admin-tenants-page";
 import SuperAdminUsersPage from "@/pages/super-admin-users-page";
 import SuperAdminOverviewPage from "@/pages/super-admin-overview-page";
@@ -246,6 +247,11 @@ function AppContent() {
             </Route>
             <Route path="/templates">
               <TemplatesPage tenantId={activeTenantId} selectedLocationId={selectedLocationId} />
+            </Route>
+            <Route path="/admin/users">
+              <AdminGuard tenantId={activeTenantId} isAdmin={isAdmin}>
+                <AdminUsersPage tenantId={activeTenantId ?? 0} />
+              </AdminGuard>
             </Route>
             <Route path="/admin/inventory">
               <AdminGuard tenantId={activeTenantId} isAdmin={isAdmin}>
