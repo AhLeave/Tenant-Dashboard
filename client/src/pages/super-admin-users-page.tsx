@@ -163,7 +163,7 @@ function UserFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Role</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger data-testid="select-user-role">
                         <SelectValue placeholder="Select role" />
@@ -185,7 +185,7 @@ function UserFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tenant</FormLabel>
-                  <Select onValueChange={(v) => field.onChange(Number(v))} defaultValue={field.value?.toString()}>
+                  <Select onValueChange={(v) => field.onChange(Number(v))} value={field.value?.toString()}>
                     <FormControl>
                       <SelectTrigger data-testid="select-user-tenant">
                         <SelectValue placeholder="Select tenant" />
@@ -385,6 +385,7 @@ export default function SuperAdminUsersPage() {
       )}
 
       <UserFormDialog
+        key={editUser?.id ?? "new"}
         open={dialogOpen}
         onOpenChange={(v) => { setDialogOpen(v); if (!v) setEditUser(null); }}
         user={editUser}
