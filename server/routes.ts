@@ -1,15 +1,15 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertTenantSchema, insertUserSchema, insertLocationSchema, insertProductSchema, insertOrderSchema } from "@shared/schema";
+import { insertTenantSchema, insertUserSchema, insertLocationSchema, insertProductSchema, insertOrderSchema, insertOrderItemSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   app.get("/api/tenants", async (_req, res) => {
-    const tenants = await storage.getTenants();
-    res.json(tenants);
+    const tenantList = await storage.getTenants();
+    res.json(tenantList);
   });
 
   app.get("/api/tenants/:id", async (req, res) => {
@@ -26,8 +26,8 @@ export async function registerRoutes(
   });
 
   app.get("/api/tenants/:tenantId/users", async (req, res) => {
-    const users = await storage.getUsersByTenant(Number(req.params.tenantId));
-    res.json(users);
+    const userList = await storage.getUsersByTenant(Number(req.params.tenantId));
+    res.json(userList);
   });
 
   app.post("/api/tenants/:tenantId/users", async (req, res) => {
@@ -68,7 +68,7 @@ export async function registerRoutes(
       const ords = await storage.getOrdersByLocation(tenantId, Number(locationId));
       res.json(ords);
     } else {
-      const ords = await storage.getOrdersByTenant(Number(req.params.tenantId));
+      const ords = await storage.getOrdersByTenant(tenantId);
       res.json(ords);
     }
   });
@@ -78,6 +78,18 @@ export async function registerRoutes(
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const order = await storage.createOrder(parsed.data);
     res.status(201).json(order);
+  });
+
+  app.get("/api/orders/:orderId/items", async (req, res) => {
+    const items = await storage.getOrderItemsByOrder(Number(req.params.orderId));
+    res.json(items);
+  });
+
+  app.post("/api/orders/:orderId/items", async (req, res) => {
+    const parsed = insertOrderItemSchema.safeParse({ ...req.body, orderId: Number(req.params.orderId) });
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const item = await storage.createOrderItem(parsed.data);
+    res.status(201).json(item);
   });
 
   return httpServer;

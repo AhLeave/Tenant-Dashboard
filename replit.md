@@ -10,11 +10,12 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - **Schema**: Multi-tenant with Tenant, User, Location, Product, Order models
 
 ## Data Models
-- **Tenant**: id, name, logo_url, subdomain
-- **User**: id, tenant_id, role (SuperAdmin/TenantAdmin/WardManager/Warehouse), email
+- **Tenant**: id, name, logo_url, subdomain, cutoff_time (text, default '07:00')
+- **User**: id, tenant_id, role (SUPER_ADMIN/TENANT_ADMIN/WARD_MANAGER/WAREHOUSE), email
 - **Location**: id, tenant_id, name
 - **Product**: id, tenant_id, name, sku, price (stored in cents)
 - **Order**: id, tenant_id, location_id, user_id, status, created_at
+- **OrderItem**: id, order_id (FK orders, cascade delete), product_id (FK products), quantity
 
 ## Key Files
 - `shared/schema.ts` - Drizzle schema definitions, Zod validators, TypeScript types

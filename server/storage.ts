@@ -6,6 +6,7 @@ import {
   type Location, type InsertLocation, locations,
   type Product, type InsertProduct, products,
   type Order, type InsertOrder, orders,
+  type OrderItem, type InsertOrderItem, orderItems,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -29,6 +30,9 @@ export interface IStorage {
   getOrdersByLocation(tenantId: number, locationId: number): Promise<Order[]>;
   getOrder(id: number): Promise<Order | undefined>;
   createOrder(order: InsertOrder): Promise<Order>;
+
+  getOrderItemsByOrder(orderId: number): Promise<OrderItem[]>;
+  createOrderItem(item: InsertOrderItem): Promise<OrderItem>;
 }
 
 const db = drizzle(process.env.DATABASE_URL!);
@@ -105,6 +109,15 @@ export class DatabaseStorage implements IStorage {
 
   async createOrder(order: InsertOrder): Promise<Order> {
     const [created] = await db.insert(orders).values(order).returning();
+    return created;
+  }
+
+  async getOrderItemsByOrder(orderId: number): Promise<OrderItem[]> {
+    return db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  }
+
+  async createOrderItem(item: InsertOrderItem): Promise<OrderItem> {
+    const [created] = await db.insert(orderItems).values(item).returning();
     return created;
   }
 }

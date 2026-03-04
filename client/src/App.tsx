@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { LocationSwitcher } from "@/components/location-switcher";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Building2 } from "lucide-react";
 import type { Tenant } from "@shared/schema";
 import NotFound from "@/pages/not-found";
@@ -16,6 +17,19 @@ import Dashboard from "@/pages/dashboard";
 import LocationsPage from "@/pages/locations-page";
 import InventoryPage from "@/pages/inventory-page";
 import OrdersPage from "@/pages/orders-page";
+
+function TenantLogo({ tenant }: { tenant: Tenant | undefined }) {
+  if (!tenant) return <Building2 className="h-4 w-4 text-muted-foreground" />;
+  const initials = tenant.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  return (
+    <Avatar className="h-7 w-7" data-testid="img-tenant-logo">
+      <AvatarImage src={tenant.logoUrl ?? undefined} alt={tenant.name} />
+      <AvatarFallback className="text-xs font-semibold bg-primary text-primary-foreground">
+        {initials}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
 
 function AppContent() {
   const { data: tenants = [] } = useQuery<Tenant[]>({
@@ -26,6 +40,7 @@ function AppContent() {
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
 
   const activeTenantId = tenantId ?? tenants[0]?.id ?? 1;
+  const activeTenant = tenants.find(t => t.id === activeTenantId);
 
   const handleTenantChange = (val: string) => {
     setTenantId(Number(val));
@@ -47,7 +62,7 @@ function AppContent() {
               onLocationChange={setSelectedLocationId}
             />
             <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <TenantLogo tenant={activeTenant} />
               <Select
                 value={activeTenantId.toString()}
                 onValueChange={handleTenantChange}
