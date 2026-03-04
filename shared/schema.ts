@@ -1,4 +1,4 @@
-import { pgTable, text, integer, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, pgEnum, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -60,7 +60,18 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
 });
 
+export const reportSchedules = pgTable("report_schedules", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  reportType: text("report_type").notNull().default("INVOICING"),
+  frequency: text("frequency").notNull().default("MONTHLY"),
+  recipientEmails: text("recipient_emails").array().notNull(),
+  nextRunDate: timestamp("next_run_date").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertProductAvailabilitySchema = createInsertSchema(productAvailabilities).omit({ id: true });
+export const insertReportScheduleSchema = createInsertSchema(reportSchedules).omit({ id: true, createdAt: true });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({ id: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
@@ -85,6 +96,26 @@ export type Location = typeof locations.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
+
+export type InsertReportSchedule = z.infer<typeof insertReportScheduleSchema>;
+export type ReportSchedule = typeof reportSchedules.$inferSelect;
+
+export type InvoicingItem = {
+  productId: number;
+  productName: string;
+  sku: string;
+  unitPrice: number;
+  totalQuantity: number;
+  lineTotal: number;
+};
+
+export type InvoicingLocation = {
+  locationId: number;
+  locationName: string;
+  totalOrders: number;
+  totalAmount: number;
+  items: InvoicingItem[];
+};
 
 export type WarehouseOrderItem = {
   id: number;

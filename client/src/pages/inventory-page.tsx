@@ -10,6 +10,7 @@ import { Package, Upload, ShoppingCart, Plus, Minus, MapPin, Filter } from "luci
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/cart-context";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import type { Product } from "@shared/schema";
 
 interface InventoryPageProps {
@@ -54,7 +55,7 @@ function QuantityControl({ value, onChange }: { value: number; onChange: (v: num
   );
 }
 
-function ProductRow({ product }: { product: Product }) {
+function ProductRow({ product, canSeePrices }: { product: Product; canSeePrices: boolean }) {
   const [qty, setQty] = useState(1);
   const { addToCart, openCart } = useCart();
   const { toast } = useToast();
@@ -89,7 +90,7 @@ function ProductRow({ product }: { product: Product }) {
       <TableCell>
         <code className="text-xs bg-muted px-2 py-1 rounded-md">{product.sku}</code>
       </TableCell>
-      <TableCell className="text-right font-medium">{formatPrice(product.price)}</TableCell>
+      {canSeePrices && <TableCell className="text-right font-medium">{formatPrice(product.price)}</TableCell>}
       <TableCell>
         <QuantityControl value={qty} onChange={setQty} />
       </TableCell>
@@ -146,6 +147,8 @@ function GroupFilterBar({
 }
 
 export default function InventoryPage({ tenantId, selectedLocationId }: InventoryPageProps) {
+  const { user } = useAuth();
+  const canSeePrices = user?.role === "TENANT_ADMIN" || user?.role === "SUPER_ADMIN";
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
 
   const { data: products = [], isLoading } = useQuery<Product[]>({
@@ -210,7 +213,7 @@ export default function InventoryPage({ tenantId, selectedLocationId }: Inventor
                     <TableHead>Product</TableHead>
                     <TableHead>Group</TableHead>
                     <TableHead>SKU</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
+                    {canSeePrices && <TableHead className="text-right">Price</TableHead>}
                     <TableHead>Qty</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
@@ -221,7 +224,7 @@ export default function InventoryPage({ tenantId, selectedLocationId }: Inventor
                       <TableCell><Skeleton className="h-4 w-48" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+                      {canSeePrices && <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>}
                       <TableCell><Skeleton className="h-8 w-28" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-16" /></TableCell>
                     </TableRow>
@@ -282,14 +285,14 @@ export default function InventoryPage({ tenantId, selectedLocationId }: Inventor
                       <TableHead>Product</TableHead>
                       <TableHead>Group</TableHead>
                       <TableHead>SKU</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
+                      {canSeePrices && <TableHead className="text-right">Price</TableHead>}
                       <TableHead>Qty</TableHead>
                       <TableHead></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredProducts.map((product) => (
-                      <ProductRow key={product.id} product={product} />
+                      <ProductRow key={product.id} product={product} canSeePrices={canSeePrices} />
                     ))}
                   </TableBody>
                 </Table>

@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useCart } from "@/contexts/cart-context";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
@@ -28,6 +29,8 @@ function formatPrice(cents: number) {
 export function CartSheet({ tenantId, selectedLocationId, locations }: CartSheetProps) {
   const { items, removeFromCart, updateQuantity, clearCart, totalItems, totalPrice, isOpen, closeCart } = useCart();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const canSeePrices = user?.role === "TENANT_ADMIN" || user?.role === "SUPER_ADMIN";
   const [cutoffError, setCutoffError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -111,7 +114,7 @@ export function CartSheet({ tenantId, selectedLocationId, locations }: CartSheet
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">{formatPrice(item.price)} each</p>
+                      {canSeePrices && <p className="text-xs text-muted-foreground">{formatPrice(item.price)} each</p>}
                       <div className="flex items-center gap-2 mt-2">
                         <Button
                           size="icon"
@@ -137,7 +140,7 @@ export function CartSheet({ tenantId, selectedLocationId, locations }: CartSheet
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
-                      <span className="text-sm font-semibold">{formatPrice(item.price * item.quantity)}</span>
+                      {canSeePrices && <span className="text-sm font-semibold">{formatPrice(item.price * item.quantity)}</span>}
                       <Button
                         size="icon"
                         variant="ghost"
@@ -154,12 +157,15 @@ export function CartSheet({ tenantId, selectedLocationId, locations }: CartSheet
             </ScrollArea>
 
             <div className="px-6 py-4 border-t space-y-4">
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-sm text-muted-foreground">Total</span>
-                <span className="text-lg font-bold" data-testid="text-cart-total">{formatPrice(totalPrice)}</span>
-              </div>
-
-              <Separator />
+              {canSeePrices && (
+                <>
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-sm text-muted-foreground">Total</span>
+                    <span className="text-lg font-bold" data-testid="text-cart-total">{formatPrice(totalPrice)}</span>
+                  </div>
+                  <Separator />
+                </>
+              )}
 
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Delivering to</p>
@@ -199,7 +205,7 @@ export function CartSheet({ tenantId, selectedLocationId, locations }: CartSheet
                 data-testid="button-checkout"
               >
                 {checkoutMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {!selectedLocationId ? "Select a location to checkout" : `Checkout — ${formatPrice(totalPrice)}`}
+                {!selectedLocationId ? "Select a location to checkout" : canSeePrices ? `Checkout — ${formatPrice(totalPrice)}` : "Checkout"}
               </Button>
             </div>
           </>

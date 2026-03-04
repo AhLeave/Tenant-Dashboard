@@ -363,6 +363,119 @@ export async function registerRoutes(
     res.json(rows);
   });
 
+  app.get("/api/tenants/:tenantId/invoicing", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const { startDate, endDate } = req.query as Record<string, string>;
+    const data = await storage.getInvoicingData(tenantId, startDate, endDate);
+    res.json(data);
+  });
+
+  app.get("/api/tenants/:tenantId/report-schedules", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const schedules = await storage.getReportSchedules(tenantId);
+    res.json(schedules);
+  });
+
+  app.post("/api/tenants/:tenantId/report-schedules", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const parsed = z.object({
+      reportType: z.string().default("INVOICING"),
+      frequency: z.enum(["WEEKLY", "MONTHLY"]),
+      recipientEmails: z.array(z.string().email()).min(1),
+    }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+
+    const nextRunDate = new Date();
+    if (parsed.data.frequency === "WEEKLY") {
+      nextRunDate.setDate(nextRunDate.getDate() + (8 - nextRunDate.getDay()) % 7 || 7);
+    } else {
+      nextRunDate.setMonth(nextRunDate.getMonth() + 1, 1);
+    }
+    nextRunDate.setHours(7, 0, 0, 0);
+
+    const schedule = await storage.createReportSchedule({
+      tenantId,
+      reportType: parsed.data.reportType,
+      frequency: parsed.data.frequency,
+      recipientEmails: parsed.data.recipientEmails,
+      nextRunDate,
+    });
+    res.status(201).json(schedule);
+  });
+
+  app.delete("/api/tenants/:tenantId/report-schedules/:id", async (req, res) => {
+    await storage.deleteReportSchedule(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.get("/api/cron/send-reports", async (req, res) => {
+    const secret = process.env.CRON_SECRET;
+    const provided = (req.headers["authorization"] ?? "").replace("Bearer ", "").trim()
+      || (req.query.secret as string ?? "");
+    if (secret && provided !== secret) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const schedules = await storage.getSchedulesDue();
+    const results: { id: number; status: string; error?: string }[] = [];
+
+    const resendKey = process.env.RESEND_API_KEY;
+    for (const schedule of schedules) {
+      try {
+        const now = new Date();
+        const periodStart = new Date(now);
+        if (schedule.frequency === "MONTHLY") {
+          periodStart.setMonth(periodStart.getMonth() - 1, 1);
+        } else {
+          periodStart.setDate(periodStart.getDate() - 7);
+        }
+        const data = await storage.getInvoicingData(schedule.tenantId, periodStart.toISOString().slice(0, 10), now.toISOString().slice(0, 10));
+
+        const formatCurrency = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+        const tableRows = data.map(loc =>
+          `<tr><td style="padding:8px;border:1px solid #ddd">${loc.locationName}</td><td style="padding:8px;border:1px solid #ddd;text-align:center">${loc.totalOrders}</td><td style="padding:8px;border:1px solid #ddd;text-align:right">${formatCurrency(loc.totalAmount)}</td></tr>`
+        ).join("");
+
+        const html = `
+          <h2>Invoicing Report — ${schedule.reportType}</h2>
+          <p>Period: ${periodStart.toLocaleDateString()} – ${now.toLocaleDateString()}</p>
+          <table style="border-collapse:collapse;width:100%;font-family:sans-serif;font-size:14px">
+            <thead><tr style="background:#f0f0f0">
+              <th style="padding:8px;border:1px solid #ddd;text-align:left">Ward / Location</th>
+              <th style="padding:8px;border:1px solid #ddd;text-align:center">Orders Fulfilled</th>
+              <th style="padding:8px;border:1px solid #ddd;text-align:right">Total Amount</th>
+            </tr></thead>
+            <tbody>${tableRows || "<tr><td colspan='3' style='padding:8px;text-align:center;color:#999'>No fulfilled orders in this period</td></tr>"}</tbody>
+          </table>`;
+
+        if (resendKey) {
+          const { Resend } = await import("resend");
+          const resend = new Resend(resendKey);
+          await resend.emails.send({
+            from: process.env.EMAIL_FROM ?? "reports@yourdomain.com",
+            to: schedule.recipientEmails,
+            subject: `Invoicing Report — ${schedule.frequency === "MONTHLY" ? "Monthly" : "Weekly"}`,
+            html,
+          });
+        }
+
+        const nextRunDate = new Date();
+        if (schedule.frequency === "MONTHLY") {
+          nextRunDate.setMonth(nextRunDate.getMonth() + 1, 1);
+        } else {
+          nextRunDate.setDate(nextRunDate.getDate() + 7);
+        }
+        nextRunDate.setHours(7, 0, 0, 0);
+        await storage.updateReportScheduleNextRun(schedule.id, nextRunDate);
+        results.push({ id: schedule.id, status: resendKey ? "sent" : "processed_no_key" });
+      } catch (err: any) {
+        results.push({ id: schedule.id, status: "error", error: err?.message });
+      }
+    }
+
+    res.json({ processed: schedules.length, results });
+  });
+
   app.post("/api/auth/login", async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {

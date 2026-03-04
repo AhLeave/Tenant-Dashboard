@@ -9,6 +9,8 @@ import {
   type OrderItem, type InsertOrderItem, orderItems,
   type InsertProductAvailability, productAvailabilities,
   type WarehouseOrder,
+  type ReportSchedule, type InsertReportSchedule, reportSchedules,
+  type InvoicingLocation,
 } from "@shared/schema";
 
 export type UserWithTenant = User & { tenantName: string };
@@ -84,6 +86,12 @@ export interface IStorage {
 
   getProductGroups(tenantId: number): Promise<string[]>;
   getOrderReport(tenantId: number, filters: ReportFilters): Promise<ReportRow[]>;
+  getInvoicingData(tenantId: number, startDate?: string, endDate?: string): Promise<InvoicingLocation[]>;
+  getReportSchedules(tenantId: number): Promise<ReportSchedule[]>;
+  createReportSchedule(data: InsertReportSchedule): Promise<ReportSchedule>;
+  deleteReportSchedule(id: number): Promise<void>;
+  updateReportScheduleNextRun(id: number, nextRunDate: Date): Promise<void>;
+  getSchedulesDue(): Promise<ReportSchedule[]>;
 }
 
 const db = drizzle(process.env.DATABASE_URL!);
@@ -511,6 +519,102 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(orders.createdAt));
 
     return rows;
+  }
+
+  async getInvoicingData(tenantId: number, startDate?: string, endDate?: string): Promise<InvoicingLocation[]> {
+    const conditions: any[] = [
+      eq(orders.tenantId, tenantId),
+      eq(orders.status, "fulfilled" as any),
+    ];
+    if (startDate) {
+      conditions.push(gte(orders.createdAt, new Date(startDate)));
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      conditions.push(lte(orders.createdAt, end));
+    }
+
+    const rows = await db
+      .select({
+        orderId: orders.id,
+        locationId: locations.id,
+        locationName: locations.name,
+        productId: products.id,
+        productName: products.name,
+        sku: products.sku,
+        unitPrice: products.price,
+        quantity: orderItems.quantity,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(products, eq(orderItems.productId, products.id))
+      .innerJoin(locations, eq(orders.locationId, locations.id))
+      .where(and(...conditions))
+      .orderBy(asc(locations.name));
+
+    const locMap = new Map<number, InvoicingLocation>();
+    const ordersByLoc = new Map<number, Set<number>>();
+
+    for (const row of rows) {
+      if (!locMap.has(row.locationId)) {
+        locMap.set(row.locationId, {
+          locationId: row.locationId,
+          locationName: row.locationName,
+          totalOrders: 0,
+          totalAmount: 0,
+          items: [],
+        });
+        ordersByLoc.set(row.locationId, new Set());
+      }
+      const loc = locMap.get(row.locationId)!;
+      ordersByLoc.get(row.locationId)!.add(row.orderId);
+
+      const lineTotal = row.unitPrice * row.quantity;
+      loc.totalAmount += lineTotal;
+
+      const existing = loc.items.find(i => i.productId === row.productId);
+      if (existing) {
+        existing.totalQuantity += row.quantity;
+        existing.lineTotal += lineTotal;
+      } else {
+        loc.items.push({
+          productId: row.productId,
+          productName: row.productName,
+          sku: row.sku,
+          unitPrice: row.unitPrice,
+          totalQuantity: row.quantity,
+          lineTotal,
+        });
+      }
+    }
+
+    for (const [locId, loc] of locMap) {
+      loc.totalOrders = ordersByLoc.get(locId)?.size ?? 0;
+    }
+
+    return Array.from(locMap.values());
+  }
+
+  async getReportSchedules(tenantId: number): Promise<ReportSchedule[]> {
+    return db.select().from(reportSchedules).where(eq(reportSchedules.tenantId, tenantId)).orderBy(asc(reportSchedules.createdAt));
+  }
+
+  async createReportSchedule(data: InsertReportSchedule): Promise<ReportSchedule> {
+    const [created] = await db.insert(reportSchedules).values(data).returning();
+    return created;
+  }
+
+  async deleteReportSchedule(id: number): Promise<void> {
+    await db.delete(reportSchedules).where(eq(reportSchedules.id, id));
+  }
+
+  async updateReportScheduleNextRun(id: number, nextRunDate: Date): Promise<void> {
+    await db.update(reportSchedules).set({ nextRunDate }).where(eq(reportSchedules.id, id));
+  }
+
+  async getSchedulesDue(): Promise<ReportSchedule[]> {
+    return db.select().from(reportSchedules).where(lte(reportSchedules.nextRunDate, new Date()));
   }
 }
 

@@ -1,0 +1,54 @@
+1. Role-Based Price Hiding
+We already have the roles (WARD_MANAGER, WAREHOUSE, TENANT_ADMIN, SUPER_ADMIN) mapped in your database and user sessions. Now, we just need to instruct the frontend UI to conditionally hide the price columns based on who is logged in.
+
+Paste this prompt into Replit:
+
+"I need to hide product prices and order totals from standard users. Please update the frontend UI across the application:
+
+1. Global Role Check:
+Ensure the user's role is accessible in the client-side session or passed down from the server layout.
+
+2. Inventory & Cart Pages:
+On the /inventory page and inside the Cart drawer, conditionally render the 'Price' column and the 'Total Cost' calculations. If the user's role is WARD_MANAGER or WAREHOUSE, do not display the price, currency symbols, or cart totals. Only display prices if the role is TENANT_ADMIN or SUPER_ADMIN.
+
+3. Orders & Warehouse Dashboards:
+Apply the exact same conditional rendering to the /orders history table and the /warehouse fulfillment dashboard. Order pickers should only see SKUs, Names, and Quantities, never the financial value of the order."
+
+2. The Invoicing Report for Admins
+Since we are hiding prices from standard users, the Tenant Admin needs a dedicated space to calculate the financial impact of these orders for cross-charging the wards at the end of the month.
+
+Paste this prompt into Replit (after Step 1):
+
+"I need to add a dedicated 'Invoicing' report for Tenant Admins. Please implement the following:
+
+1. New Report Tab/Page:
+Add an 'Invoicing' tab to the /reports page (only visible to TENANT_ADMIN and SUPER_ADMIN).
+
+2. Invoicing Logic (Drizzle ORM):
+Create a Server Action that takes a start date and end date. Query the Drizzle database for all orders with the status 'FULFILLED' within that date range for the active tenantId.
+Join the order_items, products, and locations tables.
+Group the data by locationId. Calculate the total financial value of all fulfilled orders per location (Quantity ordered * Product Price).
+
+3. Invoicing UI:
+Display this data in a clean summary table showing: 'Ward/Location Name', 'Total Orders Fulfilled', and 'Total Invoice Amount'. Include a button to expand a row and see the line-item breakdown of products that make up that total.
+Add an 'Export to Excel' button using the existing xlsx library to download this financial summary."
+
+3. Scheduled Email Reports
+Automating this requires connecting to an email service (like Resend or SendGrid) and setting up a cron job to trigger the email on a schedule.
+
+Paste this prompt into Replit (after Step 2):
+
+"I want to allow Tenant Admins to schedule reports to be sent via email. Please set up the architecture for this:
+
+1. Install Email Provider:
+Install the resend npm package (or standard nodemailer).
+
+2. Database Update:
+Update the Drizzle schema to include a report_schedules table. Columns should be: id, tenantId, reportType (e.g., 'INVOICING', 'INVENTORY_LEVELS'), frequency (e.g., 'WEEKLY', 'MONTHLY'), recipientEmails (text/array), and nextRunDate (timestamp). Run the migration.
+
+3. Admin UI:
+On the /reports page, add a 'Schedule Report' button that opens a modal allowing the admin to insert recipient email addresses and select a frequency (Weekly on Mondays, Monthly on the 1st). Save this to the report_schedules table.
+
+4. Cron API Route:
+Create a secure API route at /api/cron/send-reports. This route should query the report_schedules table for any records where nextRunDate is in the past.
+For each record, generate the relevant report data (e.g., last month's Invoicing totals), format it into a simple HTML table, and send it using the email package. Finally, update the nextRunDate to the next scheduled interval."
