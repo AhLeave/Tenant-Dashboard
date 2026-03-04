@@ -60,6 +60,21 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
 });
 
+export const standingOrders = pgTable("standing_orders", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+  locationId: integer("location_id").notNull().references(() => locations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  dayOfWeek: integer("day_of_week"),
+});
+
+export const standingOrderItems = pgTable("standing_order_items", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  standingOrderId: integer("standing_order_id").notNull().references(() => standingOrders.id, { onDelete: "cascade" }),
+  productId: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
+  quantity: integer("quantity").notNull(),
+});
+
 export const reportSchedules = pgTable("report_schedules", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   tenantId: integer("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),

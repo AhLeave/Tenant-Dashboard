@@ -1,0 +1,42 @@
+"I need to add 'Standing Orders' (Saved Cart Templates) to my application. Please update the Drizzle ORM schema:
+
+1. New Tables:
+Create a standing_orders table with columns: id, tenantId, locationId, name (text, e.g., 'Weekly ICU Supplies'), and dayOfWeek (integer 0-6, optional).
+Create a standing_order_items table with columns: id, standingOrderId, productId, and quantity (integer).
+
+2. Relations:
+Set up the Drizzle relations so standing_orders belong to a location and a tenant, and have many standing_order_items. The items belong to a product. Generate and run the migration."
+
+2. Saving a Cart as a Template
+Instead of building a template from scratch, the easiest UX is to let a user build a cart normally, and then give them a button to save that cart for the future.
+
+Paste this prompt into Replit (after Step 1):
+
+"I need to allow users to save their current shopping cart as a Standing Order template.
+
+1. Cart UI Update:
+Inside the Cart drawer component, add a 'Save as Template' button next to the 'Checkout' button.
+When clicked, open a small modal asking the user to name the template (e.g., 'Monday Essentials').
+
+2. Server Action:
+Create a Drizzle Server Action called saveStandingOrder. It should take the locationId, the templateName, and the array of items currently in the cart.
+Insert a new record into standing_orders and bulk insert the items into standing_order_items. Show a success toast message and close the modal."
+
+3. The Standing Orders Dashboard (Loading the Template)
+Now the Ward Manager needs a place to see their saved templates and actually use them.
+
+Paste this prompt into Replit (after Step 2):
+
+"I need a page where ward users can view and use their saved Standing Orders.
+
+1. New Route:
+Create a new page at /inventory/templates (or add a 'Templates' tab to the main Inventory page). Ensure this is accessible to WARD_MANAGER and admin roles.
+
+2. Fetching Data:
+Write a Drizzle query to fetch all standing_orders (and their nested standing_order_items with product details) for the currently selected locationId in the header.
+
+3. Template UI:
+Display these templates as cards. Each card should show the Template Name, total number of items, and an 'Expand' button to see the specific products and quantities inside it.
+
+4. 'Load into Cart' Logic:
+Add a primary 'Load into Cart' button on each template card. When clicked, it should take all the items in that standing_order and replace the user's current global Cart state with these items. The user can then open their Cart, make any quick adjustments, and checkout normally using the existing cutoff time logic."
