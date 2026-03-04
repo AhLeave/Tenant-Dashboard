@@ -16,6 +16,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import LocationsPage from "@/pages/locations-page";
 import InventoryPage from "@/pages/inventory-page";
+import InventoryImportPage from "@/pages/inventory-import-page";
 import OrdersPage from "@/pages/orders-page";
 
 function TenantLogo({ tenant }: { tenant: Tenant | undefined }) {
@@ -88,6 +89,9 @@ function AppContent() {
             </Route>
             <Route path="/locations">
               <LocationsPage tenantId={activeTenantId} />
+            </Route>
+            <Route path="/inventory/import">
+              <InventoryImportPage tenantId={activeTenantId} />
             </Route>
             <Route path="/inventory">
               <InventoryPage tenantId={activeTenantId} />

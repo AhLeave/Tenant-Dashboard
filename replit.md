@@ -36,7 +36,9 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - GET/POST `/api/tenants/:tenantId/users` - List/create users
 - GET/POST `/api/tenants/:tenantId/locations` - List/create locations
 - GET/POST `/api/tenants/:tenantId/products` - List/create products
+- POST `/api/tenants/:tenantId/products/bulk` - Bulk insert products (body: { products: [{ name, sku, price }] })
 - GET/POST `/api/tenants/:tenantId/orders` - List/create orders (supports ?locationId filter)
+- GET/POST `/api/orders/:orderId/items` - List/create order items
 
 ## Features
 - Multi-tenant data isolation via tenant_id on all models

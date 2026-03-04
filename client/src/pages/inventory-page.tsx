@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Package } from "lucide-react";
+import { Package, Upload } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Product } from "@shared/schema";
 
@@ -20,9 +22,17 @@ export default function InventoryPage({ tenantId }: InventoryPageProps) {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight" data-testid="text-inventory-title">Inventory</h1>
-        <p className="text-muted-foreground">Browse your product catalog</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" data-testid="text-inventory-title">Inventory</h1>
+          <p className="text-muted-foreground">Browse your product catalog</p>
+        </div>
+        <Button asChild data-testid="link-import-products">
+          <Link href="/inventory/import">
+            <Upload className="h-4 w-4 mr-2" />
+            Import Products
+          </Link>
+        </Button>
       </div>
 
       {isLoading ? (

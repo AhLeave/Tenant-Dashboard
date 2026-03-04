@@ -33,6 +33,8 @@ export interface IStorage {
 
   getOrderItemsByOrder(orderId: number): Promise<OrderItem[]>;
   createOrderItem(item: InsertOrderItem): Promise<OrderItem>;
+
+  bulkCreateProducts(products: InsertProduct[]): Promise<Product[]>;
 }
 
 const db = drizzle(process.env.DATABASE_URL!);
@@ -114,6 +116,11 @@ export class DatabaseStorage implements IStorage {
 
   async getOrderItemsByOrder(orderId: number): Promise<OrderItem[]> {
     return db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  }
+
+  async bulkCreateProducts(productList: InsertProduct[]): Promise<Product[]> {
+    if (productList.length === 0) return [];
+    return db.insert(products).values(productList).returning();
   }
 
   async createOrderItem(item: InsertOrderItem): Promise<OrderItem> {

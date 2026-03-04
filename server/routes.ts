@@ -61,6 +61,24 @@ export async function registerRoutes(
     res.status(201).json(product);
   });
 
+  app.post("/api/tenants/:tenantId/products/bulk", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const { products: rawProducts } = req.body;
+    if (!Array.isArray(rawProducts) || rawProducts.length === 0) {
+      return res.status(400).json({ message: "products must be a non-empty array" });
+    }
+    const validated = [];
+    for (const item of rawProducts) {
+      const parsed = insertProductSchema.safeParse({ ...item, tenantId });
+      if (!parsed.success) {
+        return res.status(400).json({ message: `Invalid product: ${parsed.error.message}` });
+      }
+      validated.push(parsed.data);
+    }
+    const inserted = await storage.bulkCreateProducts(validated);
+    res.status(201).json({ count: inserted.length, products: inserted });
+  });
+
   app.get("/api/tenants/:tenantId/orders", async (req, res) => {
     const locationId = req.query.locationId;
     const tenantId = Number(req.params.tenantId);
