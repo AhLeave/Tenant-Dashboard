@@ -35,12 +35,20 @@ export async function seedDatabase() {
 
   console.log(`Created tenant: ${tenant.name} (id=${tenant.id})`);
 
-  await db.insert(users).values({
-    tenantId: tenant.id,
-    role: "TENANT_ADMIN",
-    email: "admin@cuh.ie",
-  });
+  await db.insert(users).values([
+    {
+      tenantId: tenant.id,
+      role: "SUPER_ADMIN",
+      email: "superadmin@cuh.ie",
+    },
+    {
+      tenantId: tenant.id,
+      role: "TENANT_ADMIN",
+      email: "admin@cuh.ie",
+    },
+  ]);
 
+  console.log("Created super admin user: superadmin@cuh.ie");
   console.log("Created admin user: admin@cuh.ie");
 
   const xlsxPath = path.resolve(process.cwd(), "attached_assets/cuh_data_1772636502743.xlsx");

@@ -24,6 +24,8 @@ import InventoryImportPage from "@/pages/inventory-import-page";
 import OrdersPage from "@/pages/orders-page";
 import AdminInventoryPage from "@/pages/admin-inventory-page";
 import AdminLocationsPage from "@/pages/admin-locations-page";
+import SuperAdminTenantsPage from "@/pages/super-admin-tenants-page";
+import SuperAdminUsersPage from "@/pages/super-admin-users-page";
 
 function TenantLogo({ tenant }: { tenant: Tenant | undefined }) {
   if (!tenant) return <Building2 className="h-4 w-4 text-muted-foreground" />;
@@ -80,6 +82,23 @@ function AdminGuard({ tenantId, isAdmin, children }: { tenantId: number; isAdmin
   return <>{children}</>;
 }
 
+function SuperAdminGuard({ isSuperAdmin, children }: { isSuperAdmin: boolean; children: React.ReactNode }) {
+  if (!isSuperAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-6">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+          <ShieldAlert className="h-8 w-8 text-destructive" />
+        </div>
+        <h2 className="text-xl font-semibold" data-testid="text-super-admin-access-denied">Access Denied</h2>
+        <p className="text-muted-foreground max-w-sm text-sm">
+          This section is restricted to Super Admins only.
+        </p>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 function AppContent() {
   const { data: tenants = [] } = useQuery<Tenant[]>({
     queryKey: ["/api/tenants"],
@@ -101,6 +120,7 @@ function AppContent() {
   });
 
   const isAdmin = users.some(u => u.role === "SUPER_ADMIN" || u.role === "TENANT_ADMIN");
+  const isSuperAdmin = users.some(u => u.role === "SUPER_ADMIN");
 
   const handleTenantChange = (val: string) => {
     setTenantId(Number(val));
@@ -109,7 +129,7 @@ function AppContent() {
 
   return (
     <div className="flex h-screen w-full">
-      <AppSidebar isAdmin={isAdmin} />
+      <AppSidebar isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
       <div className="flex flex-col flex-1 min-w-0">
         <header className="flex items-center justify-between gap-2 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
           <div className="flex items-center gap-2">
@@ -168,6 +188,16 @@ function AppContent() {
               <AdminGuard tenantId={activeTenantId} isAdmin={isAdmin}>
                 <AdminLocationsPage tenantId={activeTenantId} />
               </AdminGuard>
+            </Route>
+            <Route path="/super-admin/tenants">
+              <SuperAdminGuard isSuperAdmin={isSuperAdmin}>
+                <SuperAdminTenantsPage />
+              </SuperAdminGuard>
+            </Route>
+            <Route path="/super-admin/users">
+              <SuperAdminGuard isSuperAdmin={isSuperAdmin}>
+                <SuperAdminUsersPage />
+              </SuperAdminGuard>
             </Route>
             <Route component={NotFound} />
           </Switch>

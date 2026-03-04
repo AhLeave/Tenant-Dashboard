@@ -1,4 +1,4 @@
-import { MapPin, Package, ShoppingCart, LayoutDashboard, ShieldCheck, MapPinned } from "lucide-react";
+import { MapPin, Package, ShoppingCart, LayoutDashboard, ShieldCheck, MapPinned, Building2, Users } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -24,11 +24,17 @@ const adminItems = [
   { title: "Manage Locations", url: "/admin/locations", icon: MapPinned },
 ];
 
+const superAdminItems = [
+  { title: "Manage Tenants", url: "/super-admin/tenants", icon: Building2 },
+  { title: "Manage Users", url: "/super-admin/users", icon: Users },
+];
+
 interface AppSidebarProps {
   isAdmin?: boolean;
+  isSuperAdmin?: boolean;
 }
 
-export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
+export function AppSidebar({ isAdmin = false, isSuperAdmin = false }: AppSidebarProps) {
   const [location] = useLocation();
 
   const isActive = (url: string) =>
@@ -72,6 +78,26 @@ export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                      <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {isSuperAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Super Admin</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {superAdminItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActive(item.url)}>
                       <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>

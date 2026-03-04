@@ -10,14 +10,21 @@ import {
   type InsertProductAvailability, productAvailabilities,
 } from "@shared/schema";
 
+export type UserWithTenant = User & { tenantName: string };
+
 export interface IStorage {
   getTenants(): Promise<Tenant[]>;
   getTenant(id: number): Promise<Tenant | undefined>;
   createTenant(tenant: InsertTenant): Promise<Tenant>;
+  updateTenant(id: number, data: Partial<InsertTenant>): Promise<Tenant>;
+  deleteTenant(id: number): Promise<{ success: boolean; message?: string }>;
 
   getUsersByTenant(tenantId: number): Promise<User[]>;
   getUser(id: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  getAllUsersWithTenant(): Promise<UserWithTenant[]>;
+  updateUser(id: number, data: Partial<InsertUser>): Promise<User>;
+  deleteUser(id: number): Promise<void>;
 
   getLocationsByTenant(tenantId: number): Promise<Location[]>;
   getLocation(id: number): Promise<Location | undefined>;
@@ -75,6 +82,73 @@ export class DatabaseStorage implements IStorage {
   async createUser(user: InsertUser): Promise<User> {
     const [created] = await db.insert(users).values(user).returning();
     return created;
+  }
+
+  async getAllUsersWithTenant(): Promise<UserWithTenant[]> {
+    const rows = await db
+      .select({
+        id: users.id,
+        tenantId: users.tenantId,
+        role: users.role,
+        email: users.email,
+        passwordHash: users.passwordHash,
+        tenantName: tenants.name,
+      })
+      .from(users)
+      .leftJoin(tenants, eq(users.tenantId, tenants.id))
+      .orderBy(users.id);
+    return rows.map((r) => ({ ...r, tenantName: r.tenantName ?? "Unknown" }));
+  }
+
+  async updateUser(id: number, data: Partial<InsertUser>): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
+  }
+
+  async updateTenant(id: number, data: Partial<InsertTenant>): Promise<Tenant> {
+    const [updated] = await db
+      .update(tenants)
+      .set(data)
+      .where(eq(tenants.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTenant(id: number): Promise<{ success: boolean; message?: string }> {
+    const [userCount] = await db
+      .select({ count: users.id })
+      .from(users)
+      .where(eq(users.tenantId, id))
+      .limit(1);
+    if (userCount) {
+      return { success: false, message: "Cannot delete tenant with existing users. Remove all users first." };
+    }
+    const [locationCount] = await db
+      .select({ count: locations.id })
+      .from(locations)
+      .where(eq(locations.tenantId, id))
+      .limit(1);
+    if (locationCount) {
+      return { success: false, message: "Cannot delete tenant with existing locations. Remove all locations first." };
+    }
+    const [productCount] = await db
+      .select({ count: products.id })
+      .from(products)
+      .where(eq(products.tenantId, id))
+      .limit(1);
+    if (productCount) {
+      return { success: false, message: "Cannot delete tenant with existing products. Remove all products first." };
+    }
+    await db.delete(tenants).where(eq(tenants.id, id));
+    return { success: true };
   }
 
   async getLocationsByTenant(tenantId: number): Promise<Location[]> {

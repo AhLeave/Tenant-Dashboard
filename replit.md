@@ -32,6 +32,8 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - `client/src/pages/orders-page.tsx` - Orders table page (filterable by location)
 - `client/src/pages/admin-inventory-page.tsx` - Admin product CRUD page
 - `client/src/pages/admin-locations-page.tsx` - Admin locations CRUD page
+- `client/src/pages/super-admin-tenants-page.tsx` - Super Admin tenant CRUD page
+- `client/src/pages/super-admin-users-page.tsx` - Super Admin user CRUD page (with bcrypt password hashing)
 
 ## API Endpoints
 - GET/POST `/api/tenants` - List/create tenants

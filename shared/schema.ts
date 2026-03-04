@@ -19,6 +19,7 @@ export const users = pgTable("users", {
   tenantId: integer("tenant_id").notNull().references(() => tenants.id),
   role: roleEnum("role").notNull().default("WAREHOUSE"),
   email: text("email").notNull().unique(),
+  passwordHash: text("password_hash"),
 });
 
 export const locations = pgTable("locations", {

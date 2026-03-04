@@ -3,6 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTenantSchema, insertUserSchema, insertLocationSchema, insertProductSchema, insertOrderSchema, insertOrderItemSchema } from "@shared/schema";
+import bcrypt from "bcryptjs";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -210,6 +211,65 @@ export async function registerRoutes(
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const item = await storage.createOrderItem(parsed.data);
     res.status(201).json(item);
+  });
+
+  const SALT_ROUNDS = 10;
+
+  app.put("/api/super-admin/tenants/:tenantId", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const parsed = insertTenantSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const tenant = await storage.updateTenant(tenantId, parsed.data);
+    res.json(tenant);
+  });
+
+  app.delete("/api/super-admin/tenants/:tenantId", async (req, res) => {
+    const result = await storage.deleteTenant(Number(req.params.tenantId));
+    if (!result.success) return res.status(409).json({ message: result.message });
+    res.status(204).send();
+  });
+
+  app.get("/api/super-admin/users", async (_req, res) => {
+    const allUsers = await storage.getAllUsersWithTenant();
+    res.json(allUsers);
+  });
+
+  const superAdminCreateUserSchema = insertUserSchema.omit({ passwordHash: true }).extend({
+    password: z.string().min(6, "Password must be at least 6 characters"),
+  });
+
+  app.post("/api/super-admin/users", async (req, res) => {
+    const parsed = superAdminCreateUserSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const { password, ...userData } = parsed.data;
+    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    const user = await storage.createUser({ ...userData, passwordHash });
+    res.status(201).json(user);
+  });
+
+  const superAdminUpdateUserSchema = z.object({
+    email: z.string().email().optional(),
+    role: z.enum(["SUPER_ADMIN", "TENANT_ADMIN", "WARD_MANAGER", "WAREHOUSE"]).optional(),
+    tenantId: z.number().optional(),
+    password: z.string().min(6).optional(),
+  });
+
+  app.put("/api/super-admin/users/:userId", async (req, res) => {
+    const userId = Number(req.params.userId);
+    const parsed = superAdminUpdateUserSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const { password, ...rest } = parsed.data;
+    const updateData: Record<string, unknown> = { ...rest };
+    if (password) {
+      updateData.passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+    }
+    const user = await storage.updateUser(userId, updateData as Parameters<typeof storage.updateUser>[1]);
+    res.json(user);
+  });
+
+  app.delete("/api/super-admin/users/:userId", async (req, res) => {
+    await storage.deleteUser(Number(req.params.userId));
+    res.status(204).send();
   });
 
   return httpServer;
