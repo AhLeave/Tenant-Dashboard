@@ -17,6 +17,9 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - **ProductAvailability**: id, product_id (FK products, cascade), location_id (FK locations, cascade) — junction table populated from Excel YES/NO matrix
 - **Order**: id, tenant_id, location_id, user_id, status, created_at
 - **OrderItem**: id, order_id (FK orders, cascade delete), product_id (FK products), quantity
+- **StandingOrder**: id, tenant_id, location_id (FK cascade), name, day_of_week (nullable int 0-6)
+- **StandingOrderItem**: id, standing_order_id (FK cascade), product_id (FK cascade), quantity
+- **ReportSchedule**: id, tenant_id, report_type, frequency (WEEKLY/MONTHLY), recipient_emails (text[]), next_run_date
 
 ## Key Files
 - `shared/schema.ts` - Drizzle schema definitions, Zod validators, TypeScript types

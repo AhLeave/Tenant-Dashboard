@@ -11,6 +11,8 @@ import {
   type WarehouseOrder,
   type ReportSchedule, type InsertReportSchedule, reportSchedules,
   type InvoicingLocation,
+  type StandingOrderWithItems, type InsertStandingOrder, type InsertStandingOrderItem,
+  standingOrders, standingOrderItems,
 } from "@shared/schema";
 
 export type UserWithTenant = User & { tenantName: string };
@@ -92,6 +94,10 @@ export interface IStorage {
   deleteReportSchedule(id: number): Promise<void>;
   updateReportScheduleNextRun(id: number, nextRunDate: Date): Promise<void>;
   getSchedulesDue(): Promise<ReportSchedule[]>;
+
+  getStandingOrders(tenantId: number, locationId: number): Promise<StandingOrderWithItems[]>;
+  createStandingOrder(data: InsertStandingOrder, items: InsertStandingOrderItem[]): Promise<StandingOrderWithItems>;
+  deleteStandingOrder(id: number): Promise<void>;
 }
 
 const db = drizzle(process.env.DATABASE_URL!);
@@ -615,6 +621,68 @@ export class DatabaseStorage implements IStorage {
 
   async getSchedulesDue(): Promise<ReportSchedule[]> {
     return db.select().from(reportSchedules).where(lte(reportSchedules.nextRunDate, new Date()));
+  }
+
+  async getStandingOrders(tenantId: number, locationId: number): Promise<StandingOrderWithItems[]> {
+    const orders = await db
+      .select()
+      .from(standingOrders)
+      .where(and(eq(standingOrders.tenantId, tenantId), eq(standingOrders.locationId, locationId)))
+      .orderBy(asc(standingOrders.name));
+
+    if (orders.length === 0) return [];
+
+    const orderIds = orders.map(o => o.id);
+    const itemRows = await db
+      .select({
+        id: standingOrderItems.id,
+        standingOrderId: standingOrderItems.standingOrderId,
+        productId: standingOrderItems.productId,
+        quantity: standingOrderItems.quantity,
+        productName: products.name,
+        sku: products.sku,
+      })
+      .from(standingOrderItems)
+      .innerJoin(products, eq(standingOrderItems.productId, products.id))
+      .where(inArray(standingOrderItems.standingOrderId, orderIds));
+
+    const itemsByOrderId = new Map<number, typeof itemRows>();
+    for (const item of itemRows) {
+      if (!itemsByOrderId.has(item.standingOrderId)) itemsByOrderId.set(item.standingOrderId, []);
+      itemsByOrderId.get(item.standingOrderId)!.push(item);
+    }
+
+    return orders.map(o => ({
+      ...o,
+      items: itemsByOrderId.get(o.id) ?? [],
+    }));
+  }
+
+  async createStandingOrder(data: InsertStandingOrder, items: InsertStandingOrderItem[]): Promise<StandingOrderWithItems> {
+    const [order] = await db.insert(standingOrders).values(data).returning();
+    const itemsWithId = items.map(i => ({
+      standingOrderId: order.id,
+      productId: i.productId,
+      quantity: i.quantity,
+    }));
+    const insertedItems = await db.insert(standingOrderItems).values(itemsWithId).returning();
+
+    const productIds = insertedItems.map(i => i.productId);
+    const prods = await db.select().from(products).where(inArray(products.id, productIds));
+    const prodMap = new Map(prods.map(p => [p.id, p]));
+
+    return {
+      ...order,
+      items: insertedItems.map(i => ({
+        ...i,
+        productName: prodMap.get(i.productId)?.name ?? "",
+        sku: prodMap.get(i.productId)?.sku ?? "",
+      })),
+    };
+  }
+
+  async deleteStandingOrder(id: number): Promise<void> {
+    await db.delete(standingOrders).where(eq(standingOrders.id, id));
   }
 }
 

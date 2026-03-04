@@ -1,4 +1,4 @@
-import { MapPin, Package, ShoppingCart, LayoutDashboard, ShieldCheck, MapPinned, Building2, Users, Warehouse, BarChart3, LayoutGrid } from "lucide-react";
+import { MapPin, Package, ShoppingCart, LayoutDashboard, ShieldCheck, MapPinned, Building2, Users, Warehouse, BarChart3, LayoutGrid, BookmarkPlus } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -17,6 +17,7 @@ const mainItems = [
   { title: "Locations", url: "/locations", icon: MapPin },
   { title: "Inventory", url: "/inventory", icon: Package },
   { title: "Orders", url: "/orders", icon: ShoppingCart },
+  { title: "Standing Orders", url: "/templates", icon: BookmarkPlus },
 ];
 
 const adminItems = [

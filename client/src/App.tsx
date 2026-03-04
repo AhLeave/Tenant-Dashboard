@@ -30,6 +30,7 @@ import SuperAdminUsersPage from "@/pages/super-admin-users-page";
 import SuperAdminOverviewPage from "@/pages/super-admin-overview-page";
 import WarehousePage from "@/pages/warehouse-page";
 import ReportsPage from "@/pages/reports-page";
+import TemplatesPage from "@/pages/templates-page";
 import LoginPage from "@/pages/login-page";
 
 function TenantLogo({ tenant }: { tenant: Tenant | undefined }) {
@@ -230,6 +231,9 @@ function AppContent() {
             </Route>
             <Route path="/orders">
               <OrdersPage tenantId={activeTenantId} selectedLocationId={selectedLocationId} />
+            </Route>
+            <Route path="/templates">
+              <TemplatesPage tenantId={activeTenantId} selectedLocationId={selectedLocationId} />
             </Route>
             <Route path="/admin/inventory">
               <AdminGuard tenantId={activeTenantId} isAdmin={isAdmin}>

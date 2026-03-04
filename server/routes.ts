@@ -505,6 +505,39 @@ export async function registerRoutes(
     });
   });
 
+  app.get("/api/tenants/:id/standing-orders", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Unauthorized" });
+    const tenantId = parseInt(req.params.id);
+    const locationId = parseInt(req.query.locationId as string);
+    if (!locationId) return res.status(400).json({ message: "locationId is required" });
+    const orders = await storage.getStandingOrders(tenantId, locationId);
+    res.json(orders);
+  });
+
+  app.post("/api/tenants/:id/standing-orders", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Unauthorized" });
+    const tenantId = parseInt(req.params.id);
+    const { name, locationId, dayOfWeek, items } = req.body;
+    if (!name || !locationId || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: "name, locationId, and items are required" });
+    }
+    const order = await storage.createStandingOrder(
+      { tenantId, locationId, name, dayOfWeek: dayOfWeek ?? null },
+      items.map((i: { productId: number; quantity: number }) => ({
+        standingOrderId: 0,
+        productId: i.productId,
+        quantity: i.quantity,
+      }))
+    );
+    res.json(order);
+  });
+
+  app.delete("/api/tenants/:id/standing-orders/:orderId", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Unauthorized" });
+    await storage.deleteStandingOrder(parseInt(req.params.orderId));
+    res.status(204).send();
+  });
+
   app.get("/api/test-email", async (req, res) => {
     if (!req.session.user) return res.status(401).json({ message: "Unauthorized" });
     if (req.session.user.role !== "TENANT_ADMIN" && req.session.user.role !== "SUPER_ADMIN") {

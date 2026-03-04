@@ -85,6 +85,8 @@ export const reportSchedules = pgTable("report_schedules", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const insertStandingOrderSchema = createInsertSchema(standingOrders).omit({ id: true });
+export const insertStandingOrderItemSchema = createInsertSchema(standingOrderItems).omit({ id: true });
 export const insertProductAvailabilitySchema = createInsertSchema(productAvailabilities).omit({ id: true });
 export const insertReportScheduleSchema = createInsertSchema(reportSchedules).omit({ id: true, createdAt: true });
 
@@ -114,6 +116,15 @@ export type OrderItem = typeof orderItems.$inferSelect;
 
 export type InsertReportSchedule = z.infer<typeof insertReportScheduleSchema>;
 export type ReportSchedule = typeof reportSchedules.$inferSelect;
+
+export type InsertStandingOrder = z.infer<typeof insertStandingOrderSchema>;
+export type InsertStandingOrderItem = z.infer<typeof insertStandingOrderItemSchema>;
+export type StandingOrder = typeof standingOrders.$inferSelect;
+export type StandingOrderItem = typeof standingOrderItems.$inferSelect;
+
+export type StandingOrderWithItems = StandingOrder & {
+  items: (StandingOrderItem & { productName: string; sku: string })[];
+};
 
 export type InvoicingItem = {
   productId: number;
