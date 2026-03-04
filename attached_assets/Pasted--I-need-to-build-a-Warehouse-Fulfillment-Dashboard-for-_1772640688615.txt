@@ -1,0 +1,24 @@
+"I need to build a 'Warehouse Fulfillment Dashboard' for the warehouse staff to manage and process incoming orders. Please implement the following using Next.js and Drizzle ORM:
+
+1. Protected Warehouse Route:
+Create a new page at /warehouse. Add a server-side check to ensure only users with the role WAREHOUSE, TENANT_ADMIN, or SUPER_ADMIN can access it. Add a link to this page in the sidebar that only renders for these roles.
+
+2. Order Fetching (Drizzle Joins):
+Write a query to fetch all orders for the active user's tenantId where the status is either 'PENDING' or 'PRINTED'.
+Crucial: You must use Drizzle's relational queries to join the locations table (to get the ward name), the users table (to get the orderer's email), and the order_items table. For the order_items, join the products table so we have the SKU, Name, and Quantity for every item in the order.
+
+3. Dashboard UI:
+Render these orders in a clean, expandable list or table. The top-level row should show: Order ID, Location Name, Date/Time Placed, and Status Badge.
+When clicked, the row should expand to show the full list of products (SKU, Name, Quantity) in that order.
+
+4. Print Picking Slip Functionality:
+Add a 'Print Order' button to each expanded order. When clicked, it should open a clean, minimalist printable view of the order (just the Location, Date, and a table of items to pick) and trigger the browser's native window.print() function. Hide navigation and sidebars in the print view using CSS @media print utilities.
+
+5. Status Updates (Server Actions):
+Create two Drizzle Server Actions:
+
+markOrderPrinted(orderId): Updates the order status from 'PENDING' to 'PRINTED'. Attach this to the 'Print Order' button so the system logs that the warehouse has started processing it.
+
+markOrderFulfilled(orderId): Updates the status to 'FULFILLED'. Add a 'Mark as Dispatched/Fulfilled' button to the UI that calls this action. Once fulfilled, the order should disappear from this active pending view.
+
+Ensure you call revalidatePath after these actions so the UI updates instantly."
