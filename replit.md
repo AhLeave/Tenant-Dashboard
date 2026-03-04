@@ -10,7 +10,7 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - **Schema**: Multi-tenant with Tenant, User, Location, Product, ProductAvailability, Order models
 
 ## Data Models
-- **Tenant**: id, name, logo_url, subdomain, cutoff_time (text, default '07:00')
+- **Tenant**: id, name, logo_url, subdomain, cutoff_time (text, default '07:00'), order_open_time (text, default '12:00')
 - **User**: id, tenant_id, role (SUPER_ADMIN/TENANT_ADMIN/WARD_MANAGER/WAREHOUSE), email
 - **Location**: id, tenant_id, name
 - **Product**: id, tenant_id, name, sku, price (stored in cents), group (nullable text)
@@ -34,6 +34,9 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - `client/src/pages/admin-locations-page.tsx` - Admin locations CRUD page
 - `client/src/pages/super-admin-tenants-page.tsx` - Super Admin tenant CRUD page
 - `client/src/pages/super-admin-users-page.tsx` - Super Admin user CRUD page (bcrypt passwords; SUPER_ADMIN role sets tenantId=null for global access)
+- `client/src/pages/reports-page.tsx` - Configurable Reports page (admin-only, at /reports)
+- `client/src/pages/login-page.tsx` - Login page (shown when not authenticated)
+- `client/src/contexts/auth-context.tsx` - Auth context providing user session state, login/logout functions
 
 ## SUPER_ADMIN Global Access Model
 - SUPER_ADMIN users have `tenantId = null` — not tied to any specific tenant
@@ -61,6 +64,11 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - GET/POST `/api/tenants/:tenantId/orders` - List/create orders (supports ?locationId filter)
 - POST `/api/tenants/:tenantId/orders/checkout` - Checkout with cutoff time enforcement
 - GET/POST `/api/orders/:orderId/items` - List/create order items
+- GET `/api/tenants/:tenantId/products/groups` - Distinct product groups for tenant
+- GET `/api/tenants/:tenantId/reports` - Order report with filters: startDate, endDate, locationIds[], productGroups[], statuses[]
+- POST `/api/auth/login` - Login with { email, password }, creates session
+- POST `/api/auth/logout` - Destroys session
+- GET `/api/auth/me` - Returns current session user or 401
 
 ## Features
 - Multi-tenant data isolation via tenant_id on all models
@@ -83,6 +91,14 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
   - Delete first removes product_availabilities, blocked if location has existing orders
   - CRUD operations invalidate shared cache key so the header LocationSwitcher updates automatically
   - Sidebar "Administration > Manage Locations" link only renders for admin users
+- Authentication: session-based login/logout. Login page shown when unauthenticated. Role (SUPER_ADMIN/TENANT_ADMIN/WAREHOUSE/WARD_MANAGER) drives access. Default seed credentials: superadmin@cuh.ie / password123, admin@cuh.ie / password123
+- Order Time Window: tenants have orderOpenTime (default 12:00) and cutoffTime (default 07:00). Checkout blocked if outside window; handles midnight-crossing windows correctly.
+- Configurable Reports at /reports (role-gated: TENANT_ADMIN or SUPER_ADMIN)
+  - Filter panel: date range, multi-select Locations, multi-select Product Groups, multi-select Status
+  - Dynamic Drizzle query joining orders + order_items + products + locations
+  - Results shown in paginated table (20 rows/page)
+  - Export to Excel (.xlsx) using xlsx package client-side
+  - Sidebar "Administration > Reports" link renders for admin users
 - Warehouse Fulfillment Dashboard at /warehouse (role-gated: WAREHOUSE, TENANT_ADMIN, or SUPER_ADMIN)
   - Expandable order list showing all pending/printed orders for the active tenant
   - Each row shows Order ID, Location Name, Date/Time, Status badge (Pending/Printed)

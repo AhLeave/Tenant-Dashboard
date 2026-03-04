@@ -1,4 +1,4 @@
-import { MapPin, Package, ShoppingCart, LayoutDashboard, ShieldCheck, MapPinned, Building2, Users, Warehouse } from "lucide-react";
+import { MapPin, Package, ShoppingCart, LayoutDashboard, ShieldCheck, MapPinned, Building2, Users, Warehouse, BarChart3 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -22,6 +22,7 @@ const mainItems = [
 const adminItems = [
   { title: "Manage Products", url: "/admin/inventory", icon: ShieldCheck },
   { title: "Manage Locations", url: "/admin/locations", icon: MapPinned },
+  { title: "Reports", url: "/reports", icon: BarChart3 },
 ];
 
 const superAdminItems = [

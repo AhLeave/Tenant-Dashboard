@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import type { ReportFilters } from "./storage";
 import { insertTenantSchema, insertUserSchema, insertLocationSchema, insertProductSchema, insertOrderSchema, insertOrderItemSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 
@@ -311,6 +312,42 @@ export async function registerRoutes(
   app.delete("/api/super-admin/users/:userId", async (req, res) => {
     await storage.deleteUser(Number(req.params.userId));
     res.status(204).send();
+  });
+
+  app.get("/api/tenants/:tenantId/products/groups", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const groups = await storage.getProductGroups(tenantId);
+    res.json(groups);
+  });
+
+  app.get("/api/tenants/:tenantId/reports", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const { startDate, endDate } = req.query as Record<string, string>;
+
+    const locationIds = [req.query.locationIds]
+      .flat()
+      .filter(Boolean)
+      .map(Number)
+      .filter(n => !isNaN(n));
+
+    const productGroups = [req.query.productGroups]
+      .flat()
+      .filter(Boolean) as string[];
+
+    const statuses = [req.query.statuses]
+      .flat()
+      .filter(Boolean) as string[];
+
+    const filters: ReportFilters = {
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      locationIds: locationIds.length ? locationIds : undefined,
+      productGroups: productGroups.length ? productGroups : undefined,
+      statuses: statuses.length ? statuses : undefined,
+    };
+
+    const rows = await storage.getOrderReport(tenantId, filters);
+    res.json(rows);
   });
 
   app.post("/api/auth/login", async (req, res) => {

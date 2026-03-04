@@ -28,6 +28,7 @@ import AdminLocationsPage from "@/pages/admin-locations-page";
 import SuperAdminTenantsPage from "@/pages/super-admin-tenants-page";
 import SuperAdminUsersPage from "@/pages/super-admin-users-page";
 import WarehousePage from "@/pages/warehouse-page";
+import ReportsPage from "@/pages/reports-page";
 import LoginPage from "@/pages/login-page";
 
 function TenantLogo({ tenant }: { tenant: Tenant | undefined }) {
@@ -219,6 +220,11 @@ function AppContent() {
             <Route path="/admin/locations">
               <AdminGuard tenantId={activeTenantId} isAdmin={isAdmin}>
                 <AdminLocationsPage tenantId={activeTenantId} />
+              </AdminGuard>
+            </Route>
+            <Route path="/reports">
+              <AdminGuard tenantId={activeTenantId} isAdmin={isAdmin}>
+                <ReportsPage tenantId={activeTenantId} />
               </AdminGuard>
             </Route>
             <Route path="/super-admin/tenants">

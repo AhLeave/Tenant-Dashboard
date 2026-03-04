@@ -1,4 +1,4 @@
-import { eq, and, isNull, inArray } from "drizzle-orm";
+import { eq, and, isNull, inArray, gte, lte, isNotNull, asc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
   type Tenant, type InsertTenant, tenants,
@@ -12,6 +12,25 @@ import {
 } from "@shared/schema";
 
 export type UserWithTenant = User & { tenantName: string };
+
+export type ReportFilters = {
+  startDate?: string;
+  endDate?: string;
+  locationIds?: number[];
+  productGroups?: string[];
+  statuses?: string[];
+};
+
+export type ReportRow = {
+  orderId: number;
+  date: Date;
+  locationName: string;
+  productName: string;
+  sku: string;
+  group: string | null;
+  quantity: number;
+  status: string;
+};
 
 export interface IStorage {
   getTenants(): Promise<Tenant[]>;
@@ -58,6 +77,9 @@ export interface IStorage {
   getWarehouseOrders(tenantId: number): Promise<WarehouseOrder[]>;
   markOrderPrinted(orderId: number): Promise<Order>;
   markOrderFulfilled(orderId: number): Promise<Order>;
+
+  getProductGroups(tenantId: number): Promise<string[]>;
+  getOrderReport(tenantId: number, filters: ReportFilters): Promise<ReportRow[]>;
 }
 
 const db = drizzle(process.env.DATABASE_URL!);
@@ -414,6 +436,61 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, orderId))
       .returning();
     return updated;
+  }
+
+  async getProductGroups(tenantId: number): Promise<string[]> {
+    const rows = await db
+      .selectDistinct({ group: products.group })
+      .from(products)
+      .where(and(eq(products.tenantId, tenantId), isNotNull(products.group)));
+    return rows
+      .map(r => r.group!)
+      .filter(Boolean)
+      .sort();
+  }
+
+  async getOrderReport(tenantId: number, filters: ReportFilters): Promise<ReportRow[]> {
+    const conditions: ReturnType<typeof eq>[] = [eq(orders.tenantId, tenantId) as any];
+
+    if (filters.startDate) {
+      const start = new Date(filters.startDate);
+      start.setHours(0, 0, 0, 0);
+      conditions.push(gte(orders.createdAt, start) as any);
+    }
+    if (filters.endDate) {
+      const end = new Date(filters.endDate);
+      end.setHours(23, 59, 59, 999);
+      conditions.push(lte(orders.createdAt, end) as any);
+    }
+    if (filters.locationIds && filters.locationIds.length > 0) {
+      conditions.push(inArray(orders.locationId, filters.locationIds) as any);
+    }
+    if (filters.statuses && filters.statuses.length > 0) {
+      conditions.push(inArray(orders.status, filters.statuses as any) as any);
+    }
+    if (filters.productGroups && filters.productGroups.length > 0) {
+      conditions.push(inArray(products.group, filters.productGroups) as any);
+    }
+
+    const rows = await db
+      .select({
+        orderId: orders.id,
+        date: orders.createdAt,
+        locationName: locations.name,
+        productName: products.name,
+        sku: products.sku,
+        group: products.group,
+        quantity: orderItems.quantity,
+        status: orders.status,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orderItems.orderId, orders.id))
+      .innerJoin(products, eq(orderItems.productId, products.id))
+      .innerJoin(locations, eq(orders.locationId, locations.id))
+      .where(and(...(conditions as any[])))
+      .orderBy(asc(orders.createdAt));
+
+    return rows;
   }
 }
 
