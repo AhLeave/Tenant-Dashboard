@@ -98,6 +98,53 @@ export async function registerRoutes(
     res.status(201).json(order);
   });
 
+  app.post("/api/tenants/:tenantId/orders/checkout", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const { locationId, items } = req.body;
+
+    if (!locationId) {
+      return res.status(400).json({ message: "A location must be selected to place an order." });
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: "Cart is empty." });
+    }
+
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+
+    const [cutoffHour, cutoffMinute] = tenant.cutoffTime.split(":").map(Number);
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const cutoffMinutes = cutoffHour * 60 + cutoffMinute;
+
+    if (currentMinutes >= cutoffMinutes) {
+      return res.status(422).json({ message: "Order cutoff time has passed." });
+    }
+
+    const users = await storage.getUsersByTenant(tenantId);
+    if (users.length === 0) {
+      return res.status(400).json({ message: "No users found for this tenant." });
+    }
+    const userId = users[0].id;
+
+    const order = await storage.createOrder({
+      tenantId,
+      locationId: Number(locationId),
+      userId,
+      status: "pending",
+    });
+
+    for (const item of items) {
+      await storage.createOrderItem({
+        orderId: order.id,
+        productId: Number(item.productId),
+        quantity: Number(item.quantity),
+      });
+    }
+
+    res.status(201).json({ order, itemCount: items.length });
+  });
+
   app.get("/api/orders/:orderId/items", async (req, res) => {
     const items = await storage.getOrderItemsByOrder(Number(req.params.orderId));
     res.json(items);

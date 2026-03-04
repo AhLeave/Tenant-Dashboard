@@ -7,11 +7,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { LocationSwitcher } from "@/components/location-switcher";
+import { CartSheet } from "@/components/cart-sheet";
+import { CartProvider, useCart } from "@/contexts/cart-context";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Building2 } from "lucide-react";
-import type { Tenant } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Building2, ShoppingCart } from "lucide-react";
+import type { Tenant, Location } from "@shared/schema";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import LocationsPage from "@/pages/locations-page";
@@ -32,6 +36,31 @@ function TenantLogo({ tenant }: { tenant: Tenant | undefined }) {
   );
 }
 
+function CartButton() {
+  const { totalItems, openCart } = useCart();
+  return (
+    <div className="relative">
+      <Button
+        size="icon"
+        variant="outline"
+        onClick={openCart}
+        data-testid="button-open-cart"
+        aria-label="Open cart"
+      >
+        <ShoppingCart className="h-4 w-4" />
+      </Button>
+      {totalItems > 0 && (
+        <Badge
+          className="absolute -top-2 -right-2 h-5 min-w-5 px-1 flex items-center justify-center text-xs no-default-active-elevate"
+          data-testid="badge-cart-total"
+        >
+          {totalItems > 99 ? "99+" : totalItems}
+        </Badge>
+      )}
+    </div>
+  );
+}
+
 function AppContent() {
   const { data: tenants = [] } = useQuery<Tenant[]>({
     queryKey: ["/api/tenants"],
@@ -39,9 +68,14 @@ function AppContent() {
 
   const [tenantId, setTenantId] = useState<number | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
+  const { isOpen, closeCart } = useCart();
 
   const activeTenantId = tenantId ?? tenants[0]?.id ?? 1;
   const activeTenant = tenants.find(t => t.id === activeTenantId);
+
+  const { data: locations = [] } = useQuery<Location[]>({
+    queryKey: ["/api/tenants", activeTenantId, "locations"],
+  });
 
   const handleTenantChange = (val: string) => {
     setTenantId(Number(val));
@@ -56,7 +90,8 @@ function AppContent() {
           <div className="flex items-center gap-2">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
           </div>
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
+            <CartButton />
             <LocationSwitcher
               tenantId={activeTenantId}
               selectedLocationId={selectedLocationId}
@@ -103,6 +138,12 @@ function AppContent() {
           </Switch>
         </main>
       </div>
+
+      <CartSheet
+        tenantId={activeTenantId}
+        selectedLocationId={selectedLocationId}
+        locations={locations}
+      />
     </div>
   );
 }
@@ -116,9 +157,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <SidebarProvider style={style as React.CSSProperties}>
-          <AppContent />
-        </SidebarProvider>
+        <CartProvider>
+          <SidebarProvider style={style as React.CSSProperties}>
+            <AppContent />
+          </SidebarProvider>
+        </CartProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
