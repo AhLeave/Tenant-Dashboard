@@ -16,6 +16,10 @@ function getLocationColumns(row: Record<string, unknown>): string[] {
 }
 
 export async function seedDatabase() {
+  if (process.env.NODE_ENV === "production") {
+    console.log("Seeding is disabled in production to prevent data loss.");
+    return;
+  }
   console.log("Wiping existing data...");
 
   await db.delete(orders);
