@@ -313,5 +313,40 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.post("/api/auth/login", async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required." });
+    }
+    const user = await storage.getUserByEmail(email);
+    if (!user || !user.passwordHash) {
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+    req.session.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      tenantId: user.tenantId ?? null,
+    };
+    res.json({ id: user.id, email: user.email, role: user.role, tenantId: user.tenantId ?? null });
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.status(204).send();
+    });
+  });
+
+  app.get("/api/auth/me", (req, res) => {
+    if (!req.session.user) {
+      return res.status(401).json({ message: "Not authenticated." });
+    }
+    res.json(req.session.user);
+  });
+
   return httpServer;
 }

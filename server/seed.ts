@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import XLSX from "xlsx";
 import * as path from "path";
+import bcrypt from "bcryptjs";
 import { tenants, users, locations, products, orders, productAvailabilities } from "@shared/schema";
 
 const db = drizzle(process.env.DATABASE_URL!);
@@ -35,21 +36,25 @@ export async function seedDatabase() {
 
   console.log(`Created tenant: ${tenant.name} (id=${tenant.id})`);
 
+  const defaultPasswordHash = await bcrypt.hash("password123", 10);
+
   await db.insert(users).values([
     {
       tenantId: null,
       role: "SUPER_ADMIN",
       email: "superadmin@cuh.ie",
+      passwordHash: defaultPasswordHash,
     },
     {
       tenantId: tenant.id,
       role: "TENANT_ADMIN",
       email: "admin@cuh.ie",
+      passwordHash: defaultPasswordHash,
     },
   ]);
 
-  console.log("Created super admin user: superadmin@cuh.ie");
-  console.log("Created admin user: admin@cuh.ie");
+  console.log("Created super admin user: superadmin@cuh.ie (password: password123)");
+  console.log("Created admin user: admin@cuh.ie (password: password123)");
 
   const xlsxPath = path.resolve(process.cwd(), "attached_assets/cuh_data_1772636502743.xlsx");
   const wb = XLSX.readFile(xlsxPath);

@@ -9,13 +9,14 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { LocationSwitcher } from "@/components/location-switcher";
 import { CartSheet } from "@/components/cart-sheet";
 import { CartProvider, useCart } from "@/contexts/cart-context";
+import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Building2, ShoppingCart, ShieldAlert } from "lucide-react";
-import type { Tenant, Location, User } from "@shared/schema";
+import { Building2, ShoppingCart, ShieldAlert, LogOut } from "lucide-react";
+import type { Tenant, Location } from "@shared/schema";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import LocationsPage from "@/pages/locations-page";
@@ -27,6 +28,7 @@ import AdminLocationsPage from "@/pages/admin-locations-page";
 import SuperAdminTenantsPage from "@/pages/super-admin-tenants-page";
 import SuperAdminUsersPage from "@/pages/super-admin-users-page";
 import WarehousePage from "@/pages/warehouse-page";
+import LoginPage from "@/pages/login-page";
 
 function TenantLogo({ tenant }: { tenant: Tenant | undefined }) {
   if (!tenant) return <Building2 className="h-4 w-4 text-muted-foreground" />;
@@ -101,38 +103,37 @@ function SuperAdminGuard({ isSuperAdmin, children }: { isSuperAdmin: boolean; ch
 }
 
 function AppContent() {
+  const { user, logout } = useAuth();
+
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const isAdmin = isSuperAdmin || user?.role === "TENANT_ADMIN";
+  const isWarehouse = isAdmin || user?.role === "WAREHOUSE" || user?.role === "WARD_MANAGER";
+
   const { data: tenants = [] } = useQuery<Tenant[]>({
     queryKey: ["/api/tenants"],
-  });
-
-  const { data: globalCheck } = useQuery<{ hasGlobalSuperAdmins: boolean; count: number }>({
-    queryKey: ["/api/super-admin/global-check"],
   });
 
   const [tenantId, setTenantId] = useState<number | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const { isOpen, closeCart } = useCart();
 
-  const activeTenantId = tenantId ?? tenants[0]?.id ?? 1;
+  const activeTenantId = isSuperAdmin
+    ? (tenantId ?? tenants[0]?.id ?? 1)
+    : (user?.tenantId ?? tenants[0]?.id ?? 1);
+
   const activeTenant = tenants.find(t => t.id === activeTenantId);
 
   const { data: locations = [] } = useQuery<Location[]>({
     queryKey: ["/api/tenants", activeTenantId, "locations"],
   });
 
-  const { data: tenantUsers = [] } = useQuery<User[]>({
-    queryKey: ["/api/tenants", activeTenantId, "users"],
-  });
-
-  const hasGlobalSuperAdmin = globalCheck?.hasGlobalSuperAdmins ?? false;
-  const tenantHasSuperAdmin = tenantUsers.some(u => u.role === "SUPER_ADMIN");
-  const isSuperAdmin = hasGlobalSuperAdmin || tenantHasSuperAdmin;
-  const isAdmin = isSuperAdmin || tenantUsers.some(u => u.role === "TENANT_ADMIN");
-  const isWarehouse = isAdmin || tenantUsers.some(u => u.role === "WAREHOUSE");
-
   const handleTenantChange = (val: string) => {
     setTenantId(Number(val));
     setSelectedLocationId(null);
+  };
+
+  const handleLogout = async () => {
+    await logout();
   };
 
   return (
@@ -176,6 +177,20 @@ function AppContent() {
                   <span className="truncate text-foreground">{activeTenant?.name ?? "Loading…"}</span>
                 </div>
               )}
+            </div>
+            <div className="flex items-center gap-2 pl-1 border-l">
+              <span className="text-sm text-muted-foreground hidden sm:block" data-testid="text-user-email">
+                {user?.email}
+              </span>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={handleLogout}
+                aria-label="Sign out"
+                data-testid="button-logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </header>
@@ -233,20 +248,37 @@ function AppContent() {
   );
 }
 
-function App() {
-  const style = {
-    "--sidebar-width": "16rem",
-    "--sidebar-width-icon": "3rem",
-  };
+function AuthGate() {
+  const { user, isLoading } = useAuth();
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  return (
+    <CartProvider>
+      <SidebarProvider style={{ "--sidebar-width": "16rem", "--sidebar-width-icon": "3rem" } as React.CSSProperties}>
+        <AppContent />
+      </SidebarProvider>
+    </CartProvider>
+  );
+}
+
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <CartProvider>
-          <SidebarProvider style={style as React.CSSProperties}>
-            <AppContent />
-          </SidebarProvider>
-        </CartProvider>
+        <AuthProvider>
+          <AuthGate />
+        </AuthProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
