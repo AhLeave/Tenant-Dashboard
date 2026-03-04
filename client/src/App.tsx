@@ -105,12 +105,23 @@ function SuperAdminGuard({ isSuperAdmin, children }: { isSuperAdmin: boolean; ch
   return <>{children}</>;
 }
 
+const PLATFORM_DOMAINS = ["replit.app", "repl.co", "replit.dev", "repl.it", "kirk.replit.dev"];
+
 function getActiveSubdomain(): string | null {
   const hostname = window.location.hostname;
+
   if (hostname === "localhost" || hostname === "127.0.0.1") return null;
+
   if (hostname.endsWith(".localhost")) return hostname.slice(0, -".localhost".length);
+
+  const isPlatformDomain = PLATFORM_DOMAINS.some(
+    (d) => hostname === d || hostname.endsWith(`.${d}`)
+  );
+  if (isPlatformDomain) return null;
+
   const parts = hostname.split(".");
   if (parts.length > 2) return parts[0];
+
   return null;
 }
 
@@ -136,13 +147,14 @@ function AppContent() {
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const { isOpen, closeCart } = useCart();
 
-  const activeTenantId = subdomainTenant?.id
-    ?? (isSuperAdmin ? (tenantId ?? tenants[0]?.id ?? 1) : (user?.tenantId ?? tenants[0]?.id ?? 1));
+  const activeTenantId: number | null = subdomainTenant?.id
+    ?? (isSuperAdmin ? (tenantId ?? tenants[0]?.id ?? null) : (user?.tenantId ?? tenants[0]?.id ?? null));
 
   const activeTenant = tenants.find(t => t.id === activeTenantId) ?? subdomainTenant;
 
   const { data: locations = [] } = useQuery<Location[]>({
     queryKey: ["/api/tenants", activeTenantId, "locations"],
+    enabled: activeTenantId != null,
   });
 
   const handleTenantChange = (val: string) => {

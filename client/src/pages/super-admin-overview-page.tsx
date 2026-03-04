@@ -3,14 +3,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, ShoppingCart, ExternalLink, Loader2, Globe } from "lucide-react";
 import type { Tenant } from "@shared/schema";
+import { useAuth } from "@/contexts/auth-context";
 
 type TenantWithStats = Tenant & { activeOrderCount: number };
 
-function getTenantUrl(subdomain: string): string {
+const PLATFORM_DOMAINS = ["replit.app", "repl.co", "replit.dev", "repl.it", "kirk.replit.dev"];
+
+function getTenantUrl(subdomain: string): string | null {
   const { protocol, hostname, port } = window.location;
   if (hostname === "localhost" || hostname === "127.0.0.1") {
     return `${protocol}//${subdomain}.localhost${port ? `:${port}` : ""}`;
   }
+  const isPlatformDomain = PLATFORM_DOMAINS.some(
+    (d) => hostname === d || hostname.endsWith(`.${d}`)
+  );
+  if (isPlatformDomain) return null;
   return `${protocol}//${subdomain}.${hostname}${port ? `:${port}` : ""}`;
 }
 
@@ -90,8 +97,10 @@ function TenantCard({ tenant }: { tenant: TenantWithStats }) {
 }
 
 export default function SuperAdminOverviewPage() {
+  const { user } = useAuth();
   const { data: tenants = [], isLoading } = useQuery<TenantWithStats[]>({
     queryKey: ["/api/super-admin/tenants-stats"],
+    enabled: !!user && user.role === "SUPER_ADMIN",
   });
 
   return (

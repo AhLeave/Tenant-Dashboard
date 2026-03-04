@@ -572,7 +572,7 @@ export async function registerRoutes(
     res.json(req.session.user);
   });
 
-  app.all("/api/*", (_req, res) => {
+  app.all("/api/{*path}", (_req, res) => {
     res.status(404).json({ message: "API endpoint not found." });
   });
 
