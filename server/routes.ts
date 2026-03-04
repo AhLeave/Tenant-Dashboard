@@ -135,6 +135,24 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/tenants/:tenantId/warehouse/orders", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const warehouseOrders = await storage.getWarehouseOrders(tenantId);
+    res.json(warehouseOrders);
+  });
+
+  app.patch("/api/orders/:orderId/print", async (req, res) => {
+    const orderId = Number(req.params.orderId);
+    const order = await storage.markOrderPrinted(orderId);
+    res.json(order);
+  });
+
+  app.patch("/api/orders/:orderId/fulfill", async (req, res) => {
+    const orderId = Number(req.params.orderId);
+    const order = await storage.markOrderFulfilled(orderId);
+    res.json(order);
+  });
+
   app.get("/api/tenants/:tenantId/orders", async (req, res) => {
     const locationId = req.query.locationId;
     const tenantId = Number(req.params.tenantId);

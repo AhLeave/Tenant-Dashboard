@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const roleEnum = pgEnum("user_role", ["SUPER_ADMIN", "TENANT_ADMIN", "WARD_MANAGER", "WAREHOUSE"]);
 
-export const orderStatusEnum = pgEnum("order_status", ["pending", "processing", "shipped", "delivered", "cancelled"]);
+export const orderStatusEnum = pgEnum("order_status", ["pending", "processing", "shipped", "delivered", "cancelled", "printed", "fulfilled"]);
 
 export const tenants = pgTable("tenants", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
@@ -84,3 +84,23 @@ export type Location = typeof locations.$inferSelect;
 export type Product = typeof products.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
+
+export type WarehouseOrderItem = {
+  id: number;
+  productId: number;
+  quantity: number;
+  sku: string;
+  productName: string;
+};
+
+export type WarehouseOrder = {
+  id: number;
+  tenantId: number;
+  locationId: number;
+  locationName: string;
+  userId: number;
+  userEmail: string;
+  status: string;
+  createdAt: Date;
+  items: WarehouseOrderItem[];
+};

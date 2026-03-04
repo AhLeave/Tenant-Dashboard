@@ -26,6 +26,7 @@ import AdminInventoryPage from "@/pages/admin-inventory-page";
 import AdminLocationsPage from "@/pages/admin-locations-page";
 import SuperAdminTenantsPage from "@/pages/super-admin-tenants-page";
 import SuperAdminUsersPage from "@/pages/super-admin-users-page";
+import WarehousePage from "@/pages/warehouse-page";
 
 function TenantLogo({ tenant }: { tenant: Tenant | undefined }) {
   if (!tenant) return <Building2 className="h-4 w-4 text-muted-foreground" />;
@@ -127,6 +128,7 @@ function AppContent() {
   const tenantHasSuperAdmin = tenantUsers.some(u => u.role === "SUPER_ADMIN");
   const isSuperAdmin = hasGlobalSuperAdmin || tenantHasSuperAdmin;
   const isAdmin = isSuperAdmin || tenantUsers.some(u => u.role === "TENANT_ADMIN");
+  const isWarehouse = isAdmin || tenantUsers.some(u => u.role === "WAREHOUSE");
 
   const handleTenantChange = (val: string) => {
     setTenantId(Number(val));
@@ -135,7 +137,7 @@ function AppContent() {
 
   return (
     <div className="flex h-screen w-full">
-      <AppSidebar isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
+      <AppSidebar isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} isWarehouse={isWarehouse} />
       <div className="flex flex-col flex-1 min-w-0">
         <header className="flex items-center justify-between gap-2 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
           <div className="flex items-center gap-2">
@@ -213,6 +215,9 @@ function AppContent() {
               <SuperAdminGuard isSuperAdmin={isSuperAdmin}>
                 <SuperAdminUsersPage />
               </SuperAdminGuard>
+            </Route>
+            <Route path="/warehouse">
+              <WarehousePage tenantId={activeTenantId} isWarehouse={isWarehouse} />
             </Route>
             <Route component={NotFound} />
           </Switch>

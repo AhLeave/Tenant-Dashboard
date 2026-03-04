@@ -1,4 +1,4 @@
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
   type Tenant, type InsertTenant, tenants,
@@ -8,6 +8,7 @@ import {
   type Order, type InsertOrder, orders,
   type OrderItem, type InsertOrderItem, orderItems,
   type InsertProductAvailability, productAvailabilities,
+  type WarehouseOrder,
 } from "@shared/schema";
 
 export type UserWithTenant = User & { tenantName: string };
@@ -52,6 +53,10 @@ export interface IStorage {
 
   getOrderItemsByOrder(orderId: number): Promise<OrderItem[]>;
   createOrderItem(item: InsertOrderItem): Promise<OrderItem>;
+
+  getWarehouseOrders(tenantId: number): Promise<WarehouseOrder[]>;
+  markOrderPrinted(orderId: number): Promise<Order>;
+  markOrderFulfilled(orderId: number): Promise<Order>;
 }
 
 const db = drizzle(process.env.DATABASE_URL!);
@@ -329,6 +334,80 @@ export class DatabaseStorage implements IStorage {
   async createOrderItem(item: InsertOrderItem): Promise<OrderItem> {
     const [created] = await db.insert(orderItems).values(item).returning();
     return created;
+  }
+
+  async getWarehouseOrders(tenantId: number): Promise<WarehouseOrder[]> {
+    const activeOrders = await db
+      .select({
+        id: orders.id,
+        tenantId: orders.tenantId,
+        locationId: orders.locationId,
+        locationName: locations.name,
+        userId: orders.userId,
+        userEmail: users.email,
+        status: orders.status,
+        createdAt: orders.createdAt,
+      })
+      .from(orders)
+      .innerJoin(locations, eq(orders.locationId, locations.id))
+      .innerJoin(users, eq(orders.userId, users.id))
+      .where(and(eq(orders.tenantId, tenantId), inArray(orders.status, ["pending", "printed"])))
+      .orderBy(orders.createdAt);
+
+    if (activeOrders.length === 0) return [];
+
+    const orderIds = activeOrders.map((o) => o.id);
+    const itemRows = await db
+      .select({
+        id: orderItems.id,
+        orderId: orderItems.orderId,
+        productId: orderItems.productId,
+        quantity: orderItems.quantity,
+        sku: products.sku,
+        productName: products.name,
+      })
+      .from(orderItems)
+      .innerJoin(products, eq(orderItems.productId, products.id))
+      .where(inArray(orderItems.orderId, orderIds));
+
+    const itemsByOrder = new Map<number, typeof itemRows>();
+    for (const item of itemRows) {
+      if (!itemsByOrder.has(item.orderId)) itemsByOrder.set(item.orderId, []);
+      itemsByOrder.get(item.orderId)!.push(item);
+    }
+
+    return activeOrders.map((order) => ({
+      ...order,
+      items: (itemsByOrder.get(order.id) ?? []).map((i) => ({
+        id: i.id,
+        productId: i.productId,
+        quantity: i.quantity,
+        sku: i.sku,
+        productName: i.productName,
+      })),
+    }));
+  }
+
+  async markOrderPrinted(orderId: number): Promise<Order> {
+    const [updated] = await db
+      .update(orders)
+      .set({ status: "printed" })
+      .where(and(eq(orders.id, orderId), eq(orders.status, "pending")))
+      .returning();
+    if (!updated) {
+      const [current] = await db.select().from(orders).where(eq(orders.id, orderId));
+      return current;
+    }
+    return updated;
+  }
+
+  async markOrderFulfilled(orderId: number): Promise<Order> {
+    const [updated] = await db
+      .update(orders)
+      .set({ status: "fulfilled" })
+      .where(eq(orders.id, orderId))
+      .returning();
+    return updated;
   }
 }
 

@@ -1,4 +1,4 @@
-import { MapPin, Package, ShoppingCart, LayoutDashboard, ShieldCheck, MapPinned, Building2, Users } from "lucide-react";
+import { MapPin, Package, ShoppingCart, LayoutDashboard, ShieldCheck, MapPinned, Building2, Users, Warehouse } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -32,9 +32,10 @@ const superAdminItems = [
 interface AppSidebarProps {
   isAdmin?: boolean;
   isSuperAdmin?: boolean;
+  isWarehouse?: boolean;
 }
 
-export function AppSidebar({ isAdmin = false, isSuperAdmin = false }: AppSidebarProps) {
+export function AppSidebar({ isAdmin = false, isSuperAdmin = false, isWarehouse = false }: AppSidebarProps) {
   const [location] = useLocation();
 
   const isActive = (url: string) =>
@@ -71,6 +72,24 @@ export function AppSidebar({ isAdmin = false, isSuperAdmin = false }: AppSidebar
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isWarehouse && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Warehouse</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={isActive("/warehouse")}>
+                    <Link href="/warehouse" data-testid="link-nav-warehouse">
+                      <Warehouse />
+                      <span>Fulfillment</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {isAdmin && (
           <SidebarGroup>

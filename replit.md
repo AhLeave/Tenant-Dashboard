@@ -43,6 +43,9 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - All data queries continue to use `activeTenantId` for correct scoping when super admin switches tenants
 
 ## API Endpoints
+- GET `/api/tenants/:tenantId/warehouse/orders` - Warehouse: list active orders (status pending/printed) with joined location, user, items+products
+- PATCH `/api/orders/:orderId/print` - Warehouse: mark order as 'printed' (only transitions from pending)
+- PATCH `/api/orders/:orderId/fulfill` - Warehouse: mark order as 'fulfilled' (removes from active view)
 - GET/POST `/api/tenants` - List/create tenants
 - GET `/api/tenants/:id` - Get tenant details
 - GET/POST `/api/tenants/:tenantId/users` - List/create users
@@ -80,3 +83,12 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
   - Delete first removes product_availabilities, blocked if location has existing orders
   - CRUD operations invalidate shared cache key so the header LocationSwitcher updates automatically
   - Sidebar "Administration > Manage Locations" link only renders for admin users
+- Warehouse Fulfillment Dashboard at /warehouse (role-gated: WAREHOUSE, TENANT_ADMIN, or SUPER_ADMIN)
+  - Expandable order list showing all pending/printed orders for the active tenant
+  - Each row shows Order ID, Location Name, Date/Time, Status badge (Pending/Printed)
+  - Expanded view shows items table with SKU, Product Name, Quantity
+  - "Print Order" button triggers window.print() and marks order status from pending→printed
+  - "Mark as Dispatched" button updates status to fulfilled and removes order from active view
+  - Print CSS hides navigation/sidebar in print view; shows a clean picking slip
+  - Order status enum extended with 'printed' and 'fulfilled' values
+  - Sidebar "Warehouse > Fulfillment" link renders for WAREHOUSE/TENANT_ADMIN/SUPER_ADMIN roles
