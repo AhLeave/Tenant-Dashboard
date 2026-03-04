@@ -35,6 +35,8 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+const cookieDomain = process.env.COOKIE_DOMAIN ?? undefined;
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "dev-secret-key-change-in-prod",
@@ -42,8 +44,9 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === "production",
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      ...(cookieDomain ? { domain: cookieDomain } : {}),
     },
   }),
 );

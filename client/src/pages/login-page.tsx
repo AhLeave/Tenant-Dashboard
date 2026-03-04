@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Package, Loader2 } from "lucide-react";
+import { useLocation } from "wouter";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email address"),
@@ -16,6 +17,7 @@ type LoginValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const [, navigate] = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
 
@@ -28,7 +30,12 @@ export default function LoginPage() {
     setError(null);
     setIsPending(true);
     try {
-      await login(values.email, values.password);
+      const loggedInUser = await login(values.email, values.password);
+      if (loggedInUser.role === "SUPER_ADMIN") {
+        navigate("/super-admin");
+      } else {
+        navigate("/");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid email or password.");
     } finally {

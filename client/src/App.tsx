@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Switch, Route } from "wouter";
+import { useState, useMemo } from "react";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -27,6 +27,7 @@ import AdminInventoryPage from "@/pages/admin-inventory-page";
 import AdminLocationsPage from "@/pages/admin-locations-page";
 import SuperAdminTenantsPage from "@/pages/super-admin-tenants-page";
 import SuperAdminUsersPage from "@/pages/super-admin-users-page";
+import SuperAdminOverviewPage from "@/pages/super-admin-overview-page";
 import WarehousePage from "@/pages/warehouse-page";
 import ReportsPage from "@/pages/reports-page";
 import LoginPage from "@/pages/login-page";
@@ -103,6 +104,15 @@ function SuperAdminGuard({ isSuperAdmin, children }: { isSuperAdmin: boolean; ch
   return <>{children}</>;
 }
 
+function getActiveSubdomain(): string | null {
+  const hostname = window.location.hostname;
+  if (hostname === "localhost" || hostname === "127.0.0.1") return null;
+  if (hostname.endsWith(".localhost")) return hostname.slice(0, -".localhost".length);
+  const parts = hostname.split(".");
+  if (parts.length > 2) return parts[0];
+  return null;
+}
+
 function AppContent() {
   const { user, logout } = useAuth();
 
@@ -114,15 +124,21 @@ function AppContent() {
     queryKey: ["/api/tenants"],
   });
 
+  const detectedSubdomain = useMemo(() => getActiveSubdomain(), []);
+
+  const { data: subdomainTenant } = useQuery<Tenant>({
+    queryKey: [`/api/tenant-by-subdomain/${detectedSubdomain}`],
+    enabled: !!detectedSubdomain,
+  });
+
   const [tenantId, setTenantId] = useState<number | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const { isOpen, closeCart } = useCart();
 
-  const activeTenantId = isSuperAdmin
-    ? (tenantId ?? tenants[0]?.id ?? 1)
-    : (user?.tenantId ?? tenants[0]?.id ?? 1);
+  const activeTenantId = subdomainTenant?.id
+    ?? (isSuperAdmin ? (tenantId ?? tenants[0]?.id ?? 1) : (user?.tenantId ?? tenants[0]?.id ?? 1));
 
-  const activeTenant = tenants.find(t => t.id === activeTenantId);
+  const activeTenant = tenants.find(t => t.id === activeTenantId) ?? subdomainTenant;
 
   const { data: locations = [] } = useQuery<Location[]>({
     queryKey: ["/api/tenants", activeTenantId, "locations"],
@@ -154,7 +170,7 @@ function AppContent() {
             />
             <div className="flex items-center gap-2">
               <TenantLogo tenant={activeTenant} />
-              {isSuperAdmin ? (
+              {isSuperAdmin && !detectedSubdomain ? (
                 <Select
                   value={activeTenantId.toString()}
                   onValueChange={handleTenantChange}
@@ -198,7 +214,10 @@ function AppContent() {
         <main className="flex-1 overflow-auto">
           <Switch>
             <Route path="/">
-              <Dashboard tenantId={activeTenantId} />
+              {isSuperAdmin && !detectedSubdomain
+                ? <Redirect to="/super-admin" />
+                : <Dashboard tenantId={activeTenantId} />
+              }
             </Route>
             <Route path="/locations">
               <LocationsPage tenantId={activeTenantId} />
@@ -235,6 +254,11 @@ function AppContent() {
             <Route path="/super-admin/users">
               <SuperAdminGuard isSuperAdmin={isSuperAdmin}>
                 <SuperAdminUsersPage />
+              </SuperAdminGuard>
+            </Route>
+            <Route path="/super-admin">
+              <SuperAdminGuard isSuperAdmin={isSuperAdmin}>
+                <SuperAdminOverviewPage />
               </SuperAdminGuard>
             </Route>
             <Route path="/warehouse">

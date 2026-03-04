@@ -15,6 +15,19 @@ export async function registerRoutes(
     res.json(tenantList);
   });
 
+  app.get("/api/tenant-by-subdomain/:subdomain", async (req, res) => {
+    const tenant = await storage.getTenantBySubdomain(req.params.subdomain);
+    if (!tenant) return res.status(404).json({ message: "Tenant not found" });
+    res.json(tenant);
+  });
+
+  app.get("/api/super-admin/tenants-stats", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Unauthorized" });
+    if (req.session.user.role !== "SUPER_ADMIN") return res.status(403).json({ message: "Forbidden" });
+    const stats = await storage.getTenantsWithStats();
+    res.json(stats);
+  });
+
   app.get("/api/tenants/:id", async (req, res) => {
     const tenant = await storage.getTenant(Number(req.params.id));
     if (!tenant) return res.status(404).json({ message: "Tenant not found" });

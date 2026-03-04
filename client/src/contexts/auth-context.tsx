@@ -11,7 +11,7 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -34,10 +34,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<AuthUser> => {
     const res = await apiRequest("POST", "/api/auth/login", { email, password });
-    const data = await res.json();
+    const data: AuthUser = await res.json();
     setUser(data);
+    return data;
   };
 
   const logout = async () => {

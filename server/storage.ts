@@ -1,4 +1,4 @@
-import { eq, and, isNull, inArray, gte, lte, isNotNull, asc } from "drizzle-orm";
+import { eq, and, isNull, inArray, gte, lte, isNotNull, asc, count } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
   type Tenant, type InsertTenant, tenants,
@@ -12,6 +12,8 @@ import {
 } from "@shared/schema";
 
 export type UserWithTenant = User & { tenantName: string };
+
+export type TenantWithStats = Tenant & { activeOrderCount: number };
 
 export type ReportFilters = {
   startDate?: string;
@@ -34,6 +36,8 @@ export type ReportRow = {
 
 export interface IStorage {
   getTenants(): Promise<Tenant[]>;
+  getTenantBySubdomain(subdomain: string): Promise<Tenant | undefined>;
+  getTenantsWithStats(): Promise<TenantWithStats[]>;
   getTenant(id: number): Promise<Tenant | undefined>;
   createTenant(tenant: InsertTenant): Promise<Tenant>;
   updateTenant(id: number, data: Partial<InsertTenant>): Promise<Tenant>;
@@ -87,6 +91,22 @@ const db = drizzle(process.env.DATABASE_URL!);
 export class DatabaseStorage implements IStorage {
   async getTenants(): Promise<Tenant[]> {
     return db.select().from(tenants);
+  }
+
+  async getTenantBySubdomain(subdomain: string): Promise<Tenant | undefined> {
+    const [tenant] = await db.select().from(tenants).where(eq(tenants.subdomain, subdomain));
+    return tenant;
+  }
+
+  async getTenantsWithStats(): Promise<TenantWithStats[]> {
+    const allTenants = await db.select().from(tenants).orderBy(asc(tenants.name));
+    const orderCounts = await db
+      .select({ tenantId: orders.tenantId, cnt: count(orders.id) })
+      .from(orders)
+      .where(inArray(orders.status, ["pending", "printed"] as const))
+      .groupBy(orders.tenantId);
+    const countMap = new Map(orderCounts.map(r => [r.tenantId, Number(r.cnt)]));
+    return allTenants.map(tenant => ({ ...tenant, activeOrderCount: countMap.get(tenant.id) ?? 0 }));
   }
 
   async getTenant(id: number): Promise<Tenant | undefined> {

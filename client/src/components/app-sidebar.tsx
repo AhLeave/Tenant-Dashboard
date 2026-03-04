@@ -1,4 +1,4 @@
-import { MapPin, Package, ShoppingCart, LayoutDashboard, ShieldCheck, MapPinned, Building2, Users, Warehouse, BarChart3 } from "lucide-react";
+import { MapPin, Package, ShoppingCart, LayoutDashboard, ShieldCheck, MapPinned, Building2, Users, Warehouse, BarChart3, LayoutGrid } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -26,6 +26,7 @@ const adminItems = [
 ];
 
 const superAdminItems = [
+  { title: "Tenant Overview", url: "/super-admin", icon: LayoutGrid },
   { title: "Manage Tenants", url: "/super-admin/tenants", icon: Building2 },
   { title: "Manage Users", url: "/super-admin/users", icon: Users },
 ];
@@ -39,8 +40,10 @@ interface AppSidebarProps {
 export function AppSidebar({ isAdmin = false, isSuperAdmin = false, isWarehouse = false }: AppSidebarProps) {
   const [location] = useLocation();
 
-  const isActive = (url: string) =>
-    url === "/" ? location === "/" : location.startsWith(url);
+  const isActive = (url: string) => {
+    if (url === "/" || url === "/super-admin") return location === url;
+    return location.startsWith(url);
+  };
 
   return (
     <Sidebar>
