@@ -1,4 +1,4 @@
-import { MapPin, Package, ShoppingCart, LayoutDashboard } from "lucide-react";
+import { MapPin, Package, ShoppingCart, LayoutDashboard, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -12,15 +12,26 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar";
 
-const items = [
+const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Locations", url: "/locations", icon: MapPin },
   { title: "Inventory", url: "/inventory", icon: Package },
   { title: "Orders", url: "/orders", icon: ShoppingCart },
 ];
 
-export function AppSidebar() {
+const adminItems = [
+  { title: "Manage Products", url: "/admin/inventory", icon: ShieldCheck },
+];
+
+interface AppSidebarProps {
+  isAdmin?: boolean;
+}
+
+export function AppSidebar({ isAdmin = false }: AppSidebarProps) {
   const [location] = useLocation();
+
+  const isActive = (url: string) =>
+    url === "/" ? location === "/" : location.startsWith(url);
 
   return (
     <Sidebar>
@@ -40,13 +51,10 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.url || (item.url !== "/" && location.startsWith(item.url))}
-                  >
-                    <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase()}`}>
+                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                    <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
@@ -56,6 +64,26 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                      <Link href={item.url} data-testid={`link-nav-${item.title.toLowerCase().replace(/\s+/g, "-")}`}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );

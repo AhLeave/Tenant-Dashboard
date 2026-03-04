@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -84,6 +85,39 @@ export async function registerRoutes(
     }
     const inserted = await storage.bulkCreateProducts(validated);
     res.status(201).json({ count: inserted.length, products: inserted });
+  });
+
+  app.get("/api/tenants/:tenantId/products/:productId/locations", async (req, res) => {
+    const locationIds = await storage.getProductLocations(Number(req.params.productId));
+    res.json(locationIds);
+  });
+
+  const adminProductSchema = insertProductSchema.omit({ tenantId: true }).extend({
+    locationIds: z.array(z.number()).default([]),
+  });
+
+  app.post("/api/tenants/:tenantId/admin/products", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    const parsed = adminProductSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const { locationIds, ...productData } = parsed.data;
+    const product = await storage.createProductWithLocations({ ...productData, tenantId }, locationIds);
+    res.status(201).json(product);
+  });
+
+  app.put("/api/tenants/:tenantId/admin/products/:productId", async (req, res) => {
+    const productId = Number(req.params.productId);
+    const parsed = adminProductSchema.partial().extend({ locationIds: z.array(z.number()).default([]) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const { locationIds, ...productData } = parsed.data;
+    const product = await storage.updateProductWithLocations(productId, productData, locationIds);
+    res.json(product);
+  });
+
+  app.delete("/api/tenants/:tenantId/admin/products/:productId", async (req, res) => {
+    const result = await storage.deleteProductById(Number(req.params.productId));
+    if (!result.success) return res.status(409).json({ message: result.message });
+    res.status(204).send();
   });
 
   app.get("/api/tenants/:tenantId/orders", async (req, res) => {

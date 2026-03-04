@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -14,14 +14,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Building2, ShoppingCart } from "lucide-react";
-import type { Tenant, Location } from "@shared/schema";
+import { Building2, ShoppingCart, ShieldAlert } from "lucide-react";
+import type { Tenant, Location, User } from "@shared/schema";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import LocationsPage from "@/pages/locations-page";
 import InventoryPage from "@/pages/inventory-page";
 import InventoryImportPage from "@/pages/inventory-import-page";
 import OrdersPage from "@/pages/orders-page";
+import AdminInventoryPage from "@/pages/admin-inventory-page";
 
 function TenantLogo({ tenant }: { tenant: Tenant | undefined }) {
   if (!tenant) return <Building2 className="h-4 w-4 text-muted-foreground" />;
@@ -61,6 +62,23 @@ function CartButton() {
   );
 }
 
+function AdminGuard({ tenantId, isAdmin, children }: { tenantId: number; isAdmin: boolean; children: React.ReactNode }) {
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-6">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+          <ShieldAlert className="h-8 w-8 text-destructive" />
+        </div>
+        <h2 className="text-xl font-semibold" data-testid="text-access-denied">Access Denied</h2>
+        <p className="text-muted-foreground max-w-sm text-sm">
+          This section is restricted to Tenant Admins and Super Admins only.
+        </p>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 function AppContent() {
   const { data: tenants = [] } = useQuery<Tenant[]>({
     queryKey: ["/api/tenants"],
@@ -77,6 +95,12 @@ function AppContent() {
     queryKey: ["/api/tenants", activeTenantId, "locations"],
   });
 
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/tenants", activeTenantId, "users"],
+  });
+
+  const isAdmin = users.some(u => u.role === "SUPER_ADMIN" || u.role === "TENANT_ADMIN");
+
   const handleTenantChange = (val: string) => {
     setTenantId(Number(val));
     setSelectedLocationId(null);
@@ -84,7 +108,7 @@ function AppContent() {
 
   return (
     <div className="flex h-screen w-full">
-      <AppSidebar />
+      <AppSidebar isAdmin={isAdmin} />
       <div className="flex flex-col flex-1 min-w-0">
         <header className="flex items-center justify-between gap-2 p-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
           <div className="flex items-center gap-2">
@@ -133,6 +157,11 @@ function AppContent() {
             </Route>
             <Route path="/orders">
               <OrdersPage tenantId={activeTenantId} selectedLocationId={selectedLocationId} />
+            </Route>
+            <Route path="/admin/inventory">
+              <AdminGuard tenantId={activeTenantId} isAdmin={isAdmin}>
+                <AdminInventoryPage tenantId={activeTenantId} />
+              </AdminGuard>
             </Route>
             <Route component={NotFound} />
           </Switch>

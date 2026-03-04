@@ -1,4 +1,4 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
   type Tenant, type InsertTenant, tenants,
@@ -29,6 +29,11 @@ export interface IStorage {
   createProduct(product: InsertProduct): Promise<Product>;
   bulkCreateProducts(products: InsertProduct[]): Promise<Product[]>;
   bulkCreateProductAvailabilities(entries: InsertProductAvailability[]): Promise<void>;
+
+  getProductLocations(productId: number): Promise<number[]>;
+  createProductWithLocations(product: InsertProduct, locationIds: number[]): Promise<Product>;
+  updateProductWithLocations(productId: number, data: Partial<InsertProduct>, locationIds: number[]): Promise<Product>;
+  deleteProductById(productId: number): Promise<{ success: boolean; message?: string }>;
 
   getOrdersByTenant(tenantId: number): Promise<Order[]>;
   getOrdersByLocation(tenantId: number, locationId: number): Promise<Order[]>;
@@ -99,16 +104,8 @@ export class DatabaseStorage implements IStorage {
         group: products.group,
       })
       .from(products)
-      .innerJoin(
-        productAvailabilities,
-        eq(products.id, productAvailabilities.productId)
-      )
-      .where(
-        and(
-          eq(products.tenantId, tenantId),
-          eq(productAvailabilities.locationId, locationId)
-        )
-      )
+      .innerJoin(productAvailabilities, eq(products.id, productAvailabilities.productId))
+      .where(and(eq(products.tenantId, tenantId), eq(productAvailabilities.locationId, locationId)))
       .orderBy(products.name);
   }
 
@@ -135,12 +132,70 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getProductLocations(productId: number): Promise<number[]> {
+    const rows = await db
+      .select({ locationId: productAvailabilities.locationId })
+      .from(productAvailabilities)
+      .where(eq(productAvailabilities.productId, productId));
+    return rows.map((r) => r.locationId);
+  }
+
+  async createProductWithLocations(product: InsertProduct, locationIds: number[]): Promise<Product> {
+    const [created] = await db.insert(products).values(product).returning();
+    if (locationIds.length > 0) {
+      await db.insert(productAvailabilities).values(
+        locationIds.map((locationId) => ({ productId: created.id, locationId }))
+      );
+    }
+    return created;
+  }
+
+  async updateProductWithLocations(
+    productId: number,
+    data: Partial<InsertProduct>,
+    locationIds: number[]
+  ): Promise<Product> {
+    const [updated] = await db
+      .update(products)
+      .set(data)
+      .where(eq(products.id, productId))
+      .returning();
+    await db.delete(productAvailabilities).where(eq(productAvailabilities.productId, productId));
+    if (locationIds.length > 0) {
+      await db.insert(productAvailabilities).values(
+        locationIds.map((locationId) => ({ productId, locationId }))
+      );
+    }
+    return updated;
+  }
+
+  async deleteProductById(productId: number): Promise<{ success: boolean; message?: string }> {
+    const refs = await db
+      .select({ id: orderItems.id })
+      .from(orderItems)
+      .where(eq(orderItems.productId, productId))
+      .limit(1);
+
+    if (refs.length > 0) {
+      return {
+        success: false,
+        message: "This product is referenced by existing orders and cannot be deleted.",
+      };
+    }
+
+    await db.delete(products).where(eq(products.id, productId));
+    return { success: true };
+  }
+
   async getOrdersByTenant(tenantId: number): Promise<Order[]> {
     return db.select().from(orders).where(eq(orders.tenantId, tenantId));
   }
 
   async getOrdersByLocation(tenantId: number, locationId: number): Promise<Order[]> {
-    return db.select().from(orders).where(and(eq(orders.tenantId, tenantId), eq(orders.locationId, locationId)));
+    return db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.tenantId, tenantId), eq(orders.locationId, locationId)));
   }
 
   async getOrder(id: number): Promise<Order | undefined> {

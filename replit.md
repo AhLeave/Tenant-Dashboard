@@ -7,7 +7,7 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - **Frontend**: React with Wouter routing, TanStack Query, Shadcn UI, Tailwind CSS
 - **Backend**: Express.js REST API
 - **Database**: PostgreSQL with Drizzle ORM
-- **Schema**: Multi-tenant with Tenant, User, Location, Product, Order models
+- **Schema**: Multi-tenant with Tenant, User, Location, Product, ProductAvailability, Order models
 
 ## Data Models
 - **Tenant**: id, name, logo_url, subdomain, cutoff_time (text, default '07:00')
@@ -24,12 +24,13 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - `server/storage.ts` - Database storage layer
 - `server/seed.ts` - Database seed data
 - `client/src/App.tsx` - Main app layout with sidebar, header, routing
-- `client/src/components/app-sidebar.tsx` - Navigation sidebar
+- `client/src/components/app-sidebar.tsx` - Navigation sidebar (shows admin section for TENANT_ADMIN/SUPER_ADMIN)
 - `client/src/components/location-switcher.tsx` - Location dropdown in header
 - `client/src/pages/dashboard.tsx` - Dashboard overview page
 - `client/src/pages/locations-page.tsx` - Locations grid page
-- `client/src/pages/inventory-page.tsx` - Products table page
+- `client/src/pages/inventory-page.tsx` - Products table page with location filter + group filter pills
 - `client/src/pages/orders-page.tsx` - Orders table page (filterable by location)
+- `client/src/pages/admin-inventory-page.tsx` - Admin product CRUD page
 
 ## API Endpoints
 - GET/POST `/api/tenants` - List/create tenants
@@ -38,13 +39,26 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - GET/POST `/api/tenants/:tenantId/locations` - List/create locations
 - GET/POST `/api/tenants/:tenantId/products` - List/create products (supports ?locationId filter via product_availabilities join)
 - POST `/api/tenants/:tenantId/products/bulk` - Bulk insert products (body: { products: [{ name, sku, price }] })
+- GET `/api/tenants/:tenantId/products/:productId/locations` - Get locationIds for a product
+- POST `/api/tenants/:tenantId/admin/products` - Admin: create product with locationIds
+- PUT `/api/tenants/:tenantId/admin/products/:productId` - Admin: update product + sync availabilities
+- DELETE `/api/tenants/:tenantId/admin/products/:productId` - Admin: delete product (blocked if in orders)
 - GET/POST `/api/tenants/:tenantId/orders` - List/create orders (supports ?locationId filter)
+- POST `/api/tenants/:tenantId/orders/checkout` - Checkout with cutoff time enforcement
 - GET/POST `/api/orders/:orderId/items` - List/create order items
 
 ## Features
 - Multi-tenant data isolation via tenant_id on all models
 - Tenant switcher dropdown in header
-- Location switcher dropdown to filter orders by location
+- Location switcher dropdown to filter orders and inventory by location
 - Dashboard with stats cards, recent orders, and locations overview
 - Sidebar navigation (Dashboard, Locations, Inventory, Orders)
 - Loading skeletons and empty states on all pages
+- Cart with slide-out sheet and checkout with server-side cutoff enforcement
+- Group filter pills on inventory page for client-side filtering by product group
+- Admin Inventory Management at /admin/inventory (role-gated: TENANT_ADMIN or SUPER_ADMIN)
+  - Table of all 233 products with Edit/Delete per row
+  - Add/Edit modal with Name, SKU, Group, Price fields plus 69 location checkboxes
+  - Location search + Select All/None bulk controls
+  - Delete blocked if product is referenced by existing orders
+  - Sidebar "Administration > Manage Products" link only renders for admin users
