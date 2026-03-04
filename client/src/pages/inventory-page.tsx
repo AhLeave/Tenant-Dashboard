@@ -78,6 +78,11 @@ function ProductRow({ product }: { product: Product }) {
         </div>
       </TableCell>
       <TableCell>
+        {product.group ? (
+          <span className="text-xs bg-muted px-2 py-1 rounded-md text-muted-foreground">{product.group}</span>
+        ) : null}
+      </TableCell>
+      <TableCell>
         <code className="text-xs bg-muted px-2 py-1 rounded-md">{product.sku}</code>
       </TableCell>
       <TableCell className="text-right font-medium">{formatPrice(product.price)}</TableCell>
@@ -125,6 +130,7 @@ export default function InventoryPage({ tenantId }: InventoryPageProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
+                  <TableHead>Group</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead className="text-right">Price</TableHead>
                   <TableHead>Qty</TableHead>
@@ -135,6 +141,7 @@ export default function InventoryPage({ tenantId }: InventoryPageProps) {
                 {[1, 2, 3, 4].map((i) => (
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-28" /></TableCell>
@@ -162,6 +169,7 @@ export default function InventoryPage({ tenantId }: InventoryPageProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
+                  <TableHead>Group</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead className="text-right">Price</TableHead>
                   <TableHead>Qty</TableHead>

@@ -33,6 +33,7 @@ export const products = pgTable("products", {
   name: text("name").notNull(),
   sku: text("sku").notNull(),
   price: integer("price").notNull(),
+  group: text("group"),
 });
 
 export const orders = pgTable("orders", {
