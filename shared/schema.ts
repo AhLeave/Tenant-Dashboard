@@ -16,7 +16,7 @@ export const tenants = pgTable("tenants", {
 
 export const users = pgTable("users", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  tenantId: integer("tenant_id").notNull().references(() => tenants.id),
+  tenantId: integer("tenant_id").references(() => tenants.id),
   role: roleEnum("role").notNull().default("WAREHOUSE"),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash"),

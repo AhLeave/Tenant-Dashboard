@@ -33,7 +33,14 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - `client/src/pages/admin-inventory-page.tsx` - Admin product CRUD page
 - `client/src/pages/admin-locations-page.tsx` - Admin locations CRUD page
 - `client/src/pages/super-admin-tenants-page.tsx` - Super Admin tenant CRUD page
-- `client/src/pages/super-admin-users-page.tsx` - Super Admin user CRUD page (with bcrypt password hashing)
+- `client/src/pages/super-admin-users-page.tsx` - Super Admin user CRUD page (bcrypt passwords; SUPER_ADMIN role sets tenantId=null for global access)
+
+## SUPER_ADMIN Global Access Model
+- SUPER_ADMIN users have `tenantId = null` — not tied to any specific tenant
+- Detected via `GET /api/super-admin/global-check` → `{ hasGlobalSuperAdmins: boolean }`
+- When global super admins exist, `isSuperAdmin = true` across all tenant contexts
+- Header tenant switcher: SUPER_ADMIN sees all tenants and can switch; others see a read-only tenant label
+- All data queries continue to use `activeTenantId` for correct scoping when super admin switches tenants
 
 ## API Endpoints
 - GET/POST `/api/tenants` - List/create tenants

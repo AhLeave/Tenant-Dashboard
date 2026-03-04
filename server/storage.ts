@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import {
   type Tenant, type InsertTenant, tenants,
@@ -20,10 +20,11 @@ export interface IStorage {
   deleteTenant(id: number): Promise<{ success: boolean; message?: string }>;
 
   getUsersByTenant(tenantId: number): Promise<User[]>;
+  getGlobalSuperAdmins(): Promise<User[]>;
   getUser(id: number): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  createUser(user: Omit<InsertUser, 'tenantId'> & { tenantId?: number | null }): Promise<User>;
   getAllUsersWithTenant(): Promise<UserWithTenant[]>;
-  updateUser(id: number, data: Partial<InsertUser>): Promise<User>;
+  updateUser(id: number, data: Partial<InsertUser> & { tenantId?: number | null }): Promise<User>;
   deleteUser(id: number): Promise<void>;
 
   getLocationsByTenant(tenantId: number): Promise<Location[]>;
@@ -74,13 +75,19 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(users).where(eq(users.tenantId, tenantId));
   }
 
+  async getGlobalSuperAdmins(): Promise<User[]> {
+    return db.select().from(users).where(
+      and(eq(users.role, "SUPER_ADMIN"), isNull(users.tenantId))
+    );
+  }
+
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
-  async createUser(user: InsertUser): Promise<User> {
-    const [created] = await db.insert(users).values(user).returning();
+  async createUser(user: Omit<InsertUser, 'tenantId'> & { tenantId?: number | null }): Promise<User> {
+    const [created] = await db.insert(users).values(user as InsertUser).returning();
     return created;
   }
 
@@ -97,13 +104,16 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .leftJoin(tenants, eq(users.tenantId, tenants.id))
       .orderBy(users.id);
-    return rows.map((r) => ({ ...r, tenantName: r.tenantName ?? "Unknown" }));
+    return rows.map((r) => ({
+      ...r,
+      tenantName: r.tenantName ?? (r.role === "SUPER_ADMIN" ? "Global (All Tenants)" : "Unknown"),
+    }));
   }
 
-  async updateUser(id: number, data: Partial<InsertUser>): Promise<User> {
+  async updateUser(id: number, data: Partial<InsertUser> & { tenantId?: number | null }): Promise<User> {
     const [updated] = await db
       .update(users)
-      .set(data)
+      .set(data as Partial<InsertUser>)
       .where(eq(users.id, id))
       .returning();
     return updated;

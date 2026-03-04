@@ -229,13 +229,21 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.get("/api/super-admin/global-check", async (_req, res) => {
+    const globalAdmins = await storage.getGlobalSuperAdmins();
+    res.json({ hasGlobalSuperAdmins: globalAdmins.length > 0, count: globalAdmins.length });
+  });
+
   app.get("/api/super-admin/users", async (_req, res) => {
     const allUsers = await storage.getAllUsersWithTenant();
     res.json(allUsers);
   });
 
-  const superAdminCreateUserSchema = insertUserSchema.omit({ passwordHash: true }).extend({
+  const superAdminCreateUserSchema = z.object({
+    email: z.string().email("Valid email required"),
     password: z.string().min(6, "Password must be at least 6 characters"),
+    role: z.enum(["SUPER_ADMIN", "TENANT_ADMIN", "WARD_MANAGER", "WAREHOUSE"]),
+    tenantId: z.number().nullable().optional(),
   });
 
   app.post("/api/super-admin/users", async (req, res) => {
@@ -243,14 +251,15 @@ export async function registerRoutes(
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const { password, ...userData } = parsed.data;
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    const user = await storage.createUser({ ...userData, passwordHash });
+    const tenantId = userData.role === "SUPER_ADMIN" ? null : (userData.tenantId ?? null);
+    const user = await storage.createUser({ ...userData, tenantId, passwordHash });
     res.status(201).json(user);
   });
 
   const superAdminUpdateUserSchema = z.object({
     email: z.string().email().optional(),
     role: z.enum(["SUPER_ADMIN", "TENANT_ADMIN", "WARD_MANAGER", "WAREHOUSE"]).optional(),
-    tenantId: z.number().optional(),
+    tenantId: z.number().nullable().optional(),
     password: z.string().min(6).optional(),
   });
 
@@ -260,6 +269,9 @@ export async function registerRoutes(
     if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
     const { password, ...rest } = parsed.data;
     const updateData: Record<string, unknown> = { ...rest };
+    if (rest.role === "SUPER_ADMIN") {
+      updateData.tenantId = null;
+    }
     if (password) {
       updateData.passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
     }

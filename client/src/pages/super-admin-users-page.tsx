@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Users, Plus, Pencil, Trash2 } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Tenant } from "@shared/schema";
 
@@ -22,7 +22,7 @@ type UserWithTenant = {
   id: number;
   email: string;
   role: "SUPER_ADMIN" | "TENANT_ADMIN" | "WARD_MANAGER" | "WAREHOUSE";
-  tenantId: number;
+  tenantId: number | null;
   tenantName: string;
   passwordHash: string | null;
 };
@@ -35,51 +35,53 @@ const roleBadgeVariant = (role: string) => {
   return "secondary";
 };
 
-const createUserSchema = z.object({
-  email: z.string().email("Valid email required"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  role: z.enum(["SUPER_ADMIN", "TENANT_ADMIN", "WARD_MANAGER", "WAREHOUSE"]),
-  tenantId: z.coerce.number().min(1, "Tenant is required"),
-});
-
-const editUserSchema = z.object({
+const userFormSchema = z.object({
   email: z.string().email("Valid email required"),
   password: z.string().min(6, "Password must be at least 6 characters").or(z.literal("")).optional(),
   role: z.enum(["SUPER_ADMIN", "TENANT_ADMIN", "WARD_MANAGER", "WAREHOUSE"]),
-  tenantId: z.coerce.number().min(1, "Tenant is required"),
+  tenantId: z.number().nullable().optional(),
 });
 
-type CreateUserValues = z.infer<typeof createUserSchema>;
-type EditUserValues = z.infer<typeof editUserSchema>;
+type UserFormValues = z.infer<typeof userFormSchema>;
 
 function UserFormDialog({
   open,
   onOpenChange,
   user,
   tenants,
+  requirePassword,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   user: UserWithTenant | null;
   tenants: Tenant[];
+  requirePassword: boolean;
 }) {
   const { toast } = useToast();
   const isEdit = !!user;
 
-  const form = useForm<CreateUserValues | EditUserValues>({
-    resolver: zodResolver(isEdit ? editUserSchema : createUserSchema),
+  const form = useForm<UserFormValues>({
+    resolver: zodResolver(
+      requirePassword
+        ? userFormSchema.extend({ password: z.string().min(6, "Password must be at least 6 characters") })
+        : userFormSchema
+    ),
     defaultValues: {
       email: user?.email ?? "",
       password: "",
       role: user?.role ?? "WAREHOUSE",
-      tenantId: user?.tenantId ?? (tenants[0]?.id ?? 0),
+      tenantId: user?.tenantId ?? (tenants[0]?.id ?? null),
     },
   });
+
+  const watchedRole = form.watch("role");
+  const isGlobalRole = watchedRole === "SUPER_ADMIN";
 
   const createMutation = useMutation({
     mutationFn: (data: object) => apiRequest("POST", "/api/super-admin/users", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/super-admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/global-check"] });
       toast({ title: "User created" });
       onOpenChange(false);
     },
@@ -93,6 +95,7 @@ function UserFormDialog({
     mutationFn: (data: object) => apiRequest("PUT", `/api/super-admin/users/${user!.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/super-admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/global-check"] });
       toast({ title: "User updated" });
       onOpenChange(false);
     },
@@ -104,11 +107,11 @@ function UserFormDialog({
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  const onSubmit = (values: CreateUserValues | EditUserValues) => {
+  const onSubmit = (values: UserFormValues) => {
     const payload: Record<string, unknown> = {
       email: values.email,
       role: values.role,
-      tenantId: Number(values.tenantId),
+      tenantId: values.role === "SUPER_ADMIN" ? null : (values.tenantId ?? null),
     };
     if (values.password) payload.password = values.password;
 
@@ -179,30 +182,53 @@ function UserFormDialog({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="tenantId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tenant</FormLabel>
-                  <Select onValueChange={(v) => field.onChange(Number(v))} value={field.value?.toString()}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-user-tenant">
-                        <SelectValue placeholder="Select tenant" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {tenants.map((t) => (
-                        <SelectItem key={t.id} value={t.id.toString()} data-testid={`option-tenant-${t.id}`}>
-                          {t.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
+            {isGlobalRole ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium leading-none">Tenant Access</p>
+                <div
+                  className="flex items-center gap-2 rounded-md border border-dashed border-primary/50 bg-primary/5 px-3 py-2.5"
+                  data-testid="badge-global-access"
+                >
+                  <Globe className="h-4 w-4 text-primary shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-primary">Global Access — All Tenants</p>
+                    <p className="text-xs text-muted-foreground">
+                      Super Admins have system-wide access and are not tied to a specific tenant.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <FormField
+                control={form.control}
+                name="tenantId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tenant</FormLabel>
+                    <Select
+                      onValueChange={(v) => field.onChange(Number(v))}
+                      value={field.value?.toString() ?? ""}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-user-tenant">
+                          <SelectValue placeholder="Select tenant" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {tenants.map((t) => (
+                          <SelectItem key={t.id} value={t.id.toString()} data-testid={`option-tenant-${t.id}`}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} data-testid="button-user-dialog-cancel">
                 Cancel
@@ -246,6 +272,7 @@ export default function SuperAdminUsersPage() {
     mutationFn: (userId: number) => apiRequest("DELETE", `/api/super-admin/users/${userId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/super-admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/super-admin/global-check"] });
       toast({ title: "User deleted" });
       setDeleteUser(null);
     },
@@ -352,7 +379,16 @@ export default function SuperAdminUsersPage() {
                         {u.role}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{u.tenantName}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {u.tenantId === null ? (
+                        <span className="flex items-center gap-1.5 text-primary font-medium">
+                          <Globe className="h-3.5 w-3.5" />
+                          Global Access
+                        </span>
+                      ) : (
+                        u.tenantName
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Button
@@ -390,6 +426,7 @@ export default function SuperAdminUsersPage() {
         onOpenChange={(v) => { setDialogOpen(v); if (!v) setEditUser(null); }}
         user={editUser}
         tenants={tenants}
+        requirePassword={!editUser}
       />
 
       <AlertDialog open={!!deleteUser} onOpenChange={(v) => !v && setDeleteUser(null)}>

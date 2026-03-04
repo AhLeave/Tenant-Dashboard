@@ -37,7 +37,7 @@ export async function seedDatabase() {
 
   await db.insert(users).values([
     {
-      tenantId: tenant.id,
+      tenantId: null,
       role: "SUPER_ADMIN",
       email: "superadmin@cuh.ie",
     },

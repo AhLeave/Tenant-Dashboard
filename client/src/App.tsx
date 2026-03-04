@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -104,6 +104,10 @@ function AppContent() {
     queryKey: ["/api/tenants"],
   });
 
+  const { data: globalCheck } = useQuery<{ hasGlobalSuperAdmins: boolean; count: number }>({
+    queryKey: ["/api/super-admin/global-check"],
+  });
+
   const [tenantId, setTenantId] = useState<number | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const { isOpen, closeCart } = useCart();
@@ -115,12 +119,14 @@ function AppContent() {
     queryKey: ["/api/tenants", activeTenantId, "locations"],
   });
 
-  const { data: users = [] } = useQuery<User[]>({
+  const { data: tenantUsers = [] } = useQuery<User[]>({
     queryKey: ["/api/tenants", activeTenantId, "users"],
   });
 
-  const isAdmin = users.some(u => u.role === "SUPER_ADMIN" || u.role === "TENANT_ADMIN");
-  const isSuperAdmin = users.some(u => u.role === "SUPER_ADMIN");
+  const hasGlobalSuperAdmin = globalCheck?.hasGlobalSuperAdmins ?? false;
+  const tenantHasSuperAdmin = tenantUsers.some(u => u.role === "SUPER_ADMIN");
+  const isSuperAdmin = hasGlobalSuperAdmin || tenantHasSuperAdmin;
+  const isAdmin = isSuperAdmin || tenantUsers.some(u => u.role === "TENANT_ADMIN");
 
   const handleTenantChange = (val: string) => {
     setTenantId(Number(val));
@@ -144,21 +150,30 @@ function AppContent() {
             />
             <div className="flex items-center gap-2">
               <TenantLogo tenant={activeTenant} />
-              <Select
-                value={activeTenantId.toString()}
-                onValueChange={handleTenantChange}
-              >
-                <SelectTrigger className="w-[180px]" data-testid="select-tenant-switcher">
-                  <SelectValue placeholder="Select tenant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tenants.map((t) => (
-                    <SelectItem key={t.id} value={t.id.toString()} data-testid={`option-tenant-${t.id}`}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isSuperAdmin ? (
+                <Select
+                  value={activeTenantId.toString()}
+                  onValueChange={handleTenantChange}
+                >
+                  <SelectTrigger className="w-[200px]" data-testid="select-tenant-switcher">
+                    <SelectValue placeholder="Select tenant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tenants.map((t) => (
+                      <SelectItem key={t.id} value={t.id.toString()} data-testid={`option-tenant-${t.id}`}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div
+                  className="flex items-center h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm w-[200px] cursor-default"
+                  data-testid="text-tenant-name"
+                >
+                  <span className="truncate text-foreground">{activeTenant?.name ?? "Loading…"}</span>
+                </div>
+              )}
             </div>
           </div>
         </header>
