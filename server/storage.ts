@@ -22,6 +22,8 @@ export interface IStorage {
   getLocationsByTenant(tenantId: number): Promise<Location[]>;
   getLocation(id: number): Promise<Location | undefined>;
   createLocation(location: InsertLocation): Promise<Location>;
+  updateLocation(locationId: number, data: { name: string }): Promise<Location>;
+  deleteLocation(locationId: number): Promise<{ success: boolean; message?: string }>;
 
   getProductsByTenant(tenantId: number): Promise<Product[]>;
   getProductsByLocation(tenantId: number, locationId: number): Promise<Product[]>;
@@ -87,6 +89,34 @@ export class DatabaseStorage implements IStorage {
   async createLocation(location: InsertLocation): Promise<Location> {
     const [created] = await db.insert(locations).values(location).returning();
     return created;
+  }
+
+  async updateLocation(locationId: number, data: { name: string }): Promise<Location> {
+    const [updated] = await db
+      .update(locations)
+      .set(data)
+      .where(eq(locations.id, locationId))
+      .returning();
+    return updated;
+  }
+
+  async deleteLocation(locationId: number): Promise<{ success: boolean; message?: string }> {
+    const existingOrders = await db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.locationId, locationId))
+      .limit(1);
+
+    if (existingOrders.length > 0) {
+      return {
+        success: false,
+        message: "Cannot delete location with existing orders.",
+      };
+    }
+
+    await db.delete(productAvailabilities).where(eq(productAvailabilities.locationId, locationId));
+    await db.delete(locations).where(eq(locations.id, locationId));
+    return { success: true };
   }
 
   async getProductsByTenant(tenantId: number): Promise<Product[]> {

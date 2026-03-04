@@ -31,6 +31,7 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - `client/src/pages/inventory-page.tsx` - Products table page with location filter + group filter pills
 - `client/src/pages/orders-page.tsx` - Orders table page (filterable by location)
 - `client/src/pages/admin-inventory-page.tsx` - Admin product CRUD page
+- `client/src/pages/admin-locations-page.tsx` - Admin locations CRUD page
 
 ## API Endpoints
 - GET/POST `/api/tenants` - List/create tenants
@@ -43,6 +44,8 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - POST `/api/tenants/:tenantId/admin/products` - Admin: create product with locationIds
 - PUT `/api/tenants/:tenantId/admin/products/:productId` - Admin: update product + sync availabilities
 - DELETE `/api/tenants/:tenantId/admin/products/:productId` - Admin: delete product (blocked if in orders)
+- PUT `/api/tenants/:tenantId/admin/locations/:locationId` - Admin: update location name
+- DELETE `/api/tenants/:tenantId/admin/locations/:locationId` - Admin: delete location (first deletes product_availabilities, blocked if has orders)
 - GET/POST `/api/tenants/:tenantId/orders` - List/create orders (supports ?locationId filter)
 - POST `/api/tenants/:tenantId/orders/checkout` - Checkout with cutoff time enforcement
 - GET/POST `/api/orders/:orderId/items` - List/create order items
@@ -57,8 +60,14 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - Cart with slide-out sheet and checkout with server-side cutoff enforcement
 - Group filter pills on inventory page for client-side filtering by product group
 - Admin Inventory Management at /admin/inventory (role-gated: TENANT_ADMIN or SUPER_ADMIN)
-  - Table of all 233 products with Edit/Delete per row
-  - Add/Edit modal with Name, SKU, Group, Price fields plus 69 location checkboxes
+  - Table of all products with Edit/Delete per row
+  - Add/Edit modal with Name, SKU, Group, Price fields plus location checkboxes
   - Location search + Select All/None bulk controls
   - Delete blocked if product is referenced by existing orders
   - Sidebar "Administration > Manage Products" link only renders for admin users
+- Admin Locations Management at /admin/locations (role-gated: TENANT_ADMIN or SUPER_ADMIN)
+  - Table of all tenant locations with Location Name, ID, Edit/Delete columns
+  - Add/Edit modal with a single Location Name text input
+  - Delete first removes product_availabilities, blocked if location has existing orders
+  - CRUD operations invalidate shared cache key so the header LocationSwitcher updates automatically
+  - Sidebar "Administration > Manage Locations" link only renders for admin users

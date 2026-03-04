@@ -23,6 +23,7 @@ import InventoryPage from "@/pages/inventory-page";
 import InventoryImportPage from "@/pages/inventory-import-page";
 import OrdersPage from "@/pages/orders-page";
 import AdminInventoryPage from "@/pages/admin-inventory-page";
+import AdminLocationsPage from "@/pages/admin-locations-page";
 
 function TenantLogo({ tenant }: { tenant: Tenant | undefined }) {
   if (!tenant) return <Building2 className="h-4 w-4 text-muted-foreground" />;
@@ -161,6 +162,11 @@ function AppContent() {
             <Route path="/admin/inventory">
               <AdminGuard tenantId={activeTenantId} isAdmin={isAdmin}>
                 <AdminInventoryPage tenantId={activeTenantId} />
+              </AdminGuard>
+            </Route>
+            <Route path="/admin/locations">
+              <AdminGuard tenantId={activeTenantId} isAdmin={isAdmin}>
+                <AdminLocationsPage tenantId={activeTenantId} />
               </AdminGuard>
             </Route>
             <Route component={NotFound} />

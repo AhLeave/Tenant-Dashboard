@@ -50,6 +50,20 @@ export async function registerRoutes(
     res.status(201).json(location);
   });
 
+  app.put("/api/tenants/:tenantId/admin/locations/:locationId", async (req, res) => {
+    const locationId = Number(req.params.locationId);
+    const parsed = z.object({ name: z.string().min(1) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const location = await storage.updateLocation(locationId, parsed.data);
+    res.json(location);
+  });
+
+  app.delete("/api/tenants/:tenantId/admin/locations/:locationId", async (req, res) => {
+    const result = await storage.deleteLocation(Number(req.params.locationId));
+    if (!result.success) return res.status(409).json({ message: result.message });
+    res.status(204).send();
+  });
+
   app.get("/api/tenants/:tenantId/products", async (req, res) => {
     const tenantId = Number(req.params.tenantId);
     const locationId = req.query.locationId;
