@@ -41,7 +41,13 @@ app.use(
 app.use(express.urlencoded({ extended: false }));
 
 const PgSession = connectPgSimple(session);
-const pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const pgPool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
+});
+pgPool.on("error", (err) => {
+  console.error("[session-pool] Unexpected error:", err.message);
+});
 const CUSTOM_DOMAIN = process.env.COOKIE_DOMAIN ?? "planet4k.dev";
 
 app.use(
@@ -50,6 +56,7 @@ app.use(
       pool: pgPool,
       tableName: "user_sessions",
       createTableIfMissing: true,
+      errorLog: (err: Error) => console.error("[session-store]", err.message),
     }),
     secret: process.env.SESSION_SECRET || "dev-secret-key-change-in-prod",
     resave: false,

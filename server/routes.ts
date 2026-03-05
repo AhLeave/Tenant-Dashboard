@@ -123,7 +123,6 @@ export async function registerRoutes(
   });
 
   app.post("/api/tenants/:tenantId/products/import-full", async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ message: "Unauthorized" });
     const tenantId = Number(req.params.tenantId);
     const { products: rawProducts, replaceAll } = req.body;
     if (!Array.isArray(rawProducts) || rawProducts.length === 0) {
