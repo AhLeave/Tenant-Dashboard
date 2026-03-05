@@ -46,12 +46,14 @@ function parseFullExcelFile(file: File): Promise<ParsedProduct[]> {
           const name = String(row["Product Name"] ?? row["name"] ?? row["Name"] ?? "").trim();
           const sku = String(row["SKU"] ?? row["sku"] ?? row["Sku"] ?? "").trim();
           const group = String(row["Product Group"] ?? row["group"] ?? row["Group"] ?? "").trim();
-          const rawPrice = row["Price per Unit"] ?? row["price"] ?? row["Price"] ?? 0;
-          const price = parseFloat(String(rawPrice).replace(/[$,]/g, ""));
+          const rawPrice = row["Price per Unit"] ?? row["price"] ?? row["Price"] ?? "";
+          const priceStr = String(rawPrice).replace(/[$,€]/g, "").trim();
+          const price = priceStr === "" ? 0 : parseFloat(priceStr);
 
           if (!name) errors.push("Name is required");
           if (!sku) errors.push("SKU is required");
-          if (isNaN(price) || price < 0) errors.push("Invalid price");
+          if (!group) errors.push("Product group is required");
+          if (priceStr !== "" && (isNaN(price) || price < 0)) errors.push("Price must be a valid number");
 
           const locationNames = locationCols.filter((col) => {
             const val = String(row[col] ?? "").toUpperCase().trim();
