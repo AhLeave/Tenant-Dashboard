@@ -41,6 +41,7 @@ export async function seedDatabase() {
   console.log(`Created tenant: ${tenant.name} (id=${tenant.id})`);
 
   const defaultPasswordHash = await bcrypt.hash("password123", 10);
+  const dualtronPasswordHash = await bcrypt.hash("Dualtron1!", 10);
 
   await db.insert(users).values([
     {
@@ -48,6 +49,12 @@ export async function seedDatabase() {
       role: "SUPER_ADMIN",
       email: "superadmin@cuh.ie",
       passwordHash: defaultPasswordHash,
+    },
+    {
+      tenantId: null,
+      role: "SUPER_ADMIN",
+      email: "epos@dualtron.ie",
+      passwordHash: dualtronPasswordHash,
     },
     {
       tenantId: tenant.id,
@@ -58,6 +65,7 @@ export async function seedDatabase() {
   ]);
 
   console.log("Created super admin user: superadmin@cuh.ie (password: password123)");
+  console.log("Created super admin user: epos@dualtron.ie (password: Dualtron1!)");
   console.log("Created admin user: admin@cuh.ie (password: password123)");
 
   const xlsxPath = path.resolve(process.cwd(), "attached_assets/cuh_data_1772636502743.xlsx");

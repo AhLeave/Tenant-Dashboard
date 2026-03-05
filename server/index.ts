@@ -6,6 +6,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
+import { ensureDefaultUsers } from "./ensure-defaults";
 
 declare module "express-session" {
   interface SessionData {
@@ -104,6 +105,7 @@ app.use((req, res, next) => {
   if (process.env.NODE_ENV !== "production") {
     await seedDatabase();
   }
+  await ensureDefaultUsers();
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
