@@ -71,6 +71,7 @@ export interface IStorage {
   clearTenantProducts(tenantId: number): Promise<void>;
 
   getProductLocations(productId: number): Promise<number[]>;
+  getAllProductAvailabilities(tenantId: number): Promise<{ productId: number; locationId: number }[]>;
   createProductWithLocations(product: InsertProduct, locationIds: number[]): Promise<Product>;
   updateProductWithLocations(productId: number, data: Partial<InsertProduct>, locationIds: number[]): Promise<Product>;
   deleteProductById(productId: number): Promise<{ success: boolean; message?: string }>;
@@ -331,6 +332,20 @@ export class DatabaseStorage implements IStorage {
       .from(productAvailabilities)
       .where(eq(productAvailabilities.productId, productId));
     return rows.map((r) => r.locationId);
+  }
+
+  async getAllProductAvailabilities(tenantId: number): Promise<{ productId: number; locationId: number }[]> {
+    const tenantProducts = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.tenantId, tenantId));
+    if (tenantProducts.length === 0) return [];
+    const ids = tenantProducts.map((p) => p.id);
+    const rows = await db
+      .select({ productId: productAvailabilities.productId, locationId: productAvailabilities.locationId })
+      .from(productAvailabilities)
+      .where(inArray(productAvailabilities.productId, ids));
+    return rows;
   }
 
   async createProductWithLocations(product: InsertProduct, locationIds: number[]): Promise<Product> {

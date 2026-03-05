@@ -166,19 +166,18 @@ export async function registerRoutes(
   });
 
   app.get("/api/tenants/:tenantId/products/export", async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ message: "Unauthorized" });
     const tenantId = Number(req.params.tenantId);
-    const [productList, locationList] = await Promise.all([
+    if (!tenantId || isNaN(tenantId)) return res.status(400).json({ message: "Invalid tenant ID" });
+    const [productList, locationList, availabilities] = await Promise.all([
       storage.getProductsByTenant(tenantId),
       storage.getLocationsByTenant(tenantId),
+      storage.getAllProductAvailabilities(tenantId),
     ]);
     const productLocationMap = new Map<number, Set<number>>();
-    await Promise.all(
-      productList.map(async (p) => {
-        const ids = await storage.getProductLocations(p.id);
-        productLocationMap.set(p.id, new Set(ids));
-      })
-    );
+    for (const { productId, locationId } of availabilities) {
+      if (!productLocationMap.has(productId)) productLocationMap.set(productId, new Set());
+      productLocationMap.get(productId)!.add(locationId);
+    }
 
     const headers = ["Product Group", "Product Name", "SKU", "Price per Unit", "ALL", ...locationList.map((l) => l.name)];
     const rows = productList.map((p) => {
@@ -198,11 +197,18 @@ export async function registerRoutes(
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
-    XLSX.utils.book_append_sheet(wb, ws, "ProductsImport");
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="inventory-export.xlsx"`);
     res.send(buf);
+  });
+
+  app.get("/api/tenants/:tenantId/product-availabilities", async (req, res) => {
+    const tenantId = Number(req.params.tenantId);
+    if (!tenantId || isNaN(tenantId)) return res.status(400).json({ message: "Invalid tenant ID" });
+    const availabilities = await storage.getAllProductAvailabilities(tenantId);
+    res.json(availabilities);
   });
 
   app.get("/api/tenants/:tenantId/products/:productId/locations", async (req, res) => {
