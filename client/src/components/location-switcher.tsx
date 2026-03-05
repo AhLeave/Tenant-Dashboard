@@ -10,7 +10,7 @@ import {
 import type { Location } from "@shared/schema";
 
 interface LocationSwitcherProps {
-  tenantId: number;
+  tenantId: number | null;
   selectedLocationId: number | null;
   onLocationChange: (locationId: number | null) => void;
 }
@@ -18,6 +18,7 @@ interface LocationSwitcherProps {
 export function LocationSwitcher({ tenantId, selectedLocationId, onLocationChange }: LocationSwitcherProps) {
   const { data: locations = [], isLoading } = useQuery<Location[]>({
     queryKey: ["/api/tenants", tenantId, "locations"],
+    enabled: tenantId != null,
   });
 
   return (

@@ -30,7 +30,9 @@ export async function registerRoutes(
   });
 
   app.get("/api/tenants/:id", async (req, res) => {
-    const tenant = await storage.getTenant(Number(req.params.id));
+    const id = Number(req.params.id);
+    if (!id || isNaN(id)) return res.status(400).json({ message: "Invalid tenant ID" });
+    const tenant = await storage.getTenant(id);
     if (!tenant) return res.status(404).json({ message: "Tenant not found" });
     res.json(tenant);
   });

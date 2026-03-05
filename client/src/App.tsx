@@ -185,21 +185,30 @@ function AppContent() {
             <div className="flex items-center gap-2">
               <TenantLogo tenant={activeTenant} />
               {isSuperAdmin && !detectedSubdomain ? (
-                <Select
-                  value={activeTenantId?.toString() ?? ""}
-                  onValueChange={handleTenantChange}
-                >
-                  <SelectTrigger className="w-[200px]" data-testid="select-tenant-switcher">
-                    <SelectValue placeholder="Select tenant" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tenants.map((t) => (
-                      <SelectItem key={t.id} value={t.id.toString()} data-testid={`option-tenant-${t.id}`}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                activeTenantId != null ? (
+                  <Select
+                    value={activeTenantId.toString()}
+                    onValueChange={handleTenantChange}
+                  >
+                    <SelectTrigger className="w-[200px]" data-testid="select-tenant-switcher">
+                      <SelectValue placeholder="Select tenant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tenants.map((t) => (
+                        <SelectItem key={t.id} value={t.id.toString()} data-testid={`option-tenant-${t.id}`}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div
+                    className="flex items-center h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm w-[200px] cursor-default text-muted-foreground"
+                    data-testid="text-tenant-loading"
+                  >
+                    Loading…
+                  </div>
+                )
               ) : (
                 <div
                   className="flex items-center h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm w-[200px] cursor-default"
