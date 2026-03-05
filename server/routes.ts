@@ -131,6 +131,23 @@ export async function registerRoutes(
     const locationList = await storage.getLocationsByTenant(tenantId);
     const locationByName = new Map(locationList.map((l) => [l.name.toLowerCase().trim(), l.id]));
 
+    const allLocationNames = new Set<string>();
+    for (const p of rawProducts) {
+      for (const name of (p.locationNames ?? [])) {
+        const key = String(name).trim();
+        if (key) allLocationNames.add(key);
+      }
+    }
+    const missingNames = [...allLocationNames].filter((n) => !locationByName.has(n.toLowerCase().trim()));
+    if (missingNames.length > 0) {
+      const created = await Promise.all(
+        missingNames.map((name) => storage.createLocation({ tenantId, name })),
+      );
+      for (const loc of created) {
+        locationByName.set(loc.name.toLowerCase().trim(), loc.id);
+      }
+    }
+
     if (replaceAll) {
       await storage.clearTenantProducts(tenantId);
     }
