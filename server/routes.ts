@@ -6,6 +6,7 @@ import type { ReportFilters } from "./storage";
 import { insertTenantSchema, insertUserSchema, insertLocationSchema, insertProductSchema, insertOrderSchema, insertOrderItemSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { sendEmail } from "./lib/email";
+import XLSX from "xlsx";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -119,6 +120,89 @@ export async function registerRoutes(
     }
     const inserted = await storage.bulkCreateProducts(validated);
     res.status(201).json({ count: inserted.length, products: inserted });
+  });
+
+  app.post("/api/tenants/:tenantId/products/import-full", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Unauthorized" });
+    const tenantId = Number(req.params.tenantId);
+    const { products: rawProducts, replaceAll } = req.body;
+    if (!Array.isArray(rawProducts) || rawProducts.length === 0) {
+      return res.status(400).json({ message: "products must be a non-empty array" });
+    }
+    const locationList = await storage.getLocationsByTenant(tenantId);
+    const locationByName = new Map(locationList.map((l) => [l.name.toLowerCase().trim(), l.id]));
+
+    if (replaceAll) {
+      await storage.clearTenantProducts(tenantId);
+    }
+
+    const BATCH = 50;
+    let totalInserted = 0;
+    for (let i = 0; i < rawProducts.length; i += BATCH) {
+      const batch = rawProducts.slice(i, i + BATCH);
+      const productValues = batch
+        .filter((p: any) => p.name && p.sku)
+        .map((p: any) => ({
+          tenantId,
+          name: String(p.name).trim(),
+          sku: String(p.sku).trim(),
+          group: p.group ? String(p.group).trim() : null,
+          price: Math.round(Number(p.price ?? 0) * 100),
+        }));
+      if (productValues.length === 0) continue;
+      const inserted = await storage.bulkCreateProducts(productValues);
+      totalInserted += inserted.length;
+      const availabilities: { productId: number; locationId: number }[] = [];
+      inserted.forEach((product, idx) => {
+        const names: string[] = batch[idx]?.locationNames ?? [];
+        for (const name of names) {
+          const locationId = locationByName.get(name.toLowerCase().trim());
+          if (locationId) availabilities.push({ productId: product.id, locationId });
+        }
+      });
+      await storage.bulkCreateProductAvailabilities(availabilities);
+    }
+    res.status(201).json({ count: totalInserted });
+  });
+
+  app.get("/api/tenants/:tenantId/products/export", async (req, res) => {
+    if (!req.session.user) return res.status(401).json({ message: "Unauthorized" });
+    const tenantId = Number(req.params.tenantId);
+    const [productList, locationList] = await Promise.all([
+      storage.getProductsByTenant(tenantId),
+      storage.getLocationsByTenant(tenantId),
+    ]);
+    const productLocationMap = new Map<number, Set<number>>();
+    await Promise.all(
+      productList.map(async (p) => {
+        const ids = await storage.getProductLocations(p.id);
+        productLocationMap.set(p.id, new Set(ids));
+      })
+    );
+
+    const headers = ["Product Group", "Product Name", "SKU", "Price per Unit", "ALL", ...locationList.map((l) => l.name)];
+    const rows = productList.map((p) => {
+      const row: Record<string, string | number> = {
+        "Product Group": p.group ?? "",
+        "Product Name": p.name,
+        "SKU": p.sku,
+        "Price per Unit": parseFloat((p.price / 100).toFixed(2)),
+        "ALL": "",
+      };
+      const locs = productLocationMap.get(p.id) ?? new Set();
+      for (const loc of locationList) {
+        row[loc.name] = locs.has(loc.id) ? "YES" : "NO";
+      }
+      return row;
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+    XLSX.utils.book_append_sheet(wb, ws, "ProductsImport");
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="inventory-export.xlsx"`);
+    res.send(buf);
   });
 
   app.get("/api/tenants/:tenantId/products/:productId/locations", async (req, res) => {

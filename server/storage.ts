@@ -68,6 +68,7 @@ export interface IStorage {
   createProduct(product: InsertProduct): Promise<Product>;
   bulkCreateProducts(products: InsertProduct[]): Promise<Product[]>;
   bulkCreateProductAvailabilities(entries: InsertProductAvailability[]): Promise<void>;
+  clearTenantProducts(tenantId: number): Promise<void>;
 
   getProductLocations(productId: number): Promise<number[]>;
   createProductWithLocations(product: InsertProduct, locationIds: number[]): Promise<Product>;
@@ -311,6 +312,17 @@ export class DatabaseStorage implements IStorage {
     for (let i = 0; i < entries.length; i += BATCH) {
       await db.insert(productAvailabilities).values(entries.slice(i, i + BATCH));
     }
+  }
+
+  async clearTenantProducts(tenantId: number): Promise<void> {
+    const tenantProducts = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.tenantId, tenantId));
+    if (tenantProducts.length === 0) return;
+    const ids = tenantProducts.map((p) => p.id);
+    await db.delete(productAvailabilities).where(inArray(productAvailabilities.productId, ids));
+    await db.delete(products).where(eq(products.tenantId, tenantId));
   }
 
   async getProductLocations(productId: number): Promise<number[]> {

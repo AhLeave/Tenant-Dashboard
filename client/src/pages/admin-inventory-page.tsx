@@ -16,7 +16,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Package, Plus, Pencil, Trash2, ShieldCheck, Search, CheckSquare, Square } from "lucide-react";
+import { Package, Plus, Pencil, Trash2, ShieldCheck, Search, CheckSquare, Square, Download, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Product, Location } from "@shared/schema";
 
@@ -301,6 +301,26 @@ export default function AdminInventoryPage({ tenantId }: AdminInventoryPageProps
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
   const [editLocationIds, setEditLocationIds] = useState<number[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/products/export`, { credentials: "include" });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "inventory-export.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast({ title: "Export failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const { data: products = [], isLoading: loadingProducts } = useQuery<Product[]>({
     queryKey: ["/api/tenants", tenantId, "admin-products"],
@@ -377,10 +397,16 @@ export default function AdminInventoryPage({ tenantId }: AdminInventoryPageProps
             Manage products and their location availability. Changes apply immediately to all users.
           </p>
         </div>
-        <Button onClick={handleAddNew} data-testid="button-add-product">
-          <Plus className="h-4 w-4 mr-2" />
-          Add New Product
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExport} disabled={isExporting} data-testid="button-export-products">
+            {isExporting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            {isExporting ? "Exporting…" : "Export XLSX"}
+          </Button>
+          <Button onClick={handleAddNew} data-testid="button-add-product">
+            <Plus className="h-4 w-4 mr-2" />
+            Add New Product
+          </Button>
+        </div>
       </div>
 
       {loadingProducts ? (

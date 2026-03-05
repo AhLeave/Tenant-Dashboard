@@ -58,6 +58,8 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
 - GET/POST `/api/tenants/:tenantId/locations` - List/create locations
 - GET/POST `/api/tenants/:tenantId/products` - List/create products (supports ?locationId filter via product_availabilities join)
 - POST `/api/tenants/:tenantId/products/bulk` - Bulk insert products (body: { products: [{ name, sku, price }] })
+- POST `/api/tenants/:tenantId/products/import-full` - Full Excel import: { products: [{name, sku, price, group, locationNames[]}], replaceAll?: bool } — matches locationNames to existing DB locations, optionally clears all existing products first
+- GET `/api/tenants/:tenantId/products/export` - Export all products as .xlsx with location YES/NO matrix columns (same format as import template)
 - GET `/api/tenants/:tenantId/products/:productId/locations` - Get locationIds for a product
 - POST `/api/tenants/:tenantId/admin/products` - Admin: create product with locationIds
 - PUT `/api/tenants/:tenantId/admin/products/:productId` - Admin: update product + sync availabilities
@@ -88,6 +90,14 @@ A multi-tenant web application with a dashboard UI for managing locations, inven
   - Location search + Select All/None bulk controls
   - Delete blocked if product is referenced by existing orders
   - Sidebar "Administration > Manage Products" link only renders for admin users
+  - **Export XLSX** button downloads all products in full import template format (Product Group, Product Name, SKU, Price per Unit, location YES/NO columns)
+- Excel Import at /inventory/import (TENANT_ADMIN/SUPER_ADMIN)
+  - Drag-and-drop / file picker for .xlsx/.xls files
+  - Parses full format: Product Group | Product Name | SKU | Price per Unit | ALL (skip) | [location columns with YES/NO]
+  - Preview table shows valid/invalid rows, errors, group, SKU, price, location assignment count
+  - "Replace existing products" toggle — when on, clears all tenant products before importing
+  - Sends parsed data to `/api/tenants/:tenantId/products/import-full` matching locationNames to DB locations
+- Seed data uses `attached_assets/tenant_data_master_1772702860404.xlsx` (single Sheet1, 233 products, 69 location columns)
 - Admin Locations Management at /admin/locations (role-gated: TENANT_ADMIN or SUPER_ADMIN)
   - Table of all tenant locations with Location Name, ID, Edit/Delete columns
   - Add/Edit modal with a single Location Name text input

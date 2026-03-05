@@ -68,20 +68,26 @@ export async function seedDatabase() {
   console.log("Created super admin user: epos@dualtron.ie (password: Dualtron1!)");
   console.log("Created admin user: admin@cuh.ie (password: password123)");
 
-  const xlsxPath = path.resolve(process.cwd(), "attached_assets/cuh_data_1772636502743.xlsx");
+  const xlsxPath = path.resolve(process.cwd(), "attached_assets/tenant_data_master_1772702860404.xlsx");
   const wb = XLSX.readFile(xlsxPath);
 
-  const locWs = wb.Sheets["Locations"];
-  const locRows = XLSX.utils.sheet_to_json<Record<string, string>>(locWs, { defval: "" });
-  const locationNames: string[] = locRows
-    .map((r) => String(r["Locations"] || "").trim())
-    .filter((n) => n.length > 0);
+  const sheetName = wb.SheetNames.includes("ProductsImport")
+    ? "ProductsImport"
+    : wb.SheetNames.includes("Products")
+    ? "Products"
+    : wb.SheetNames[0];
+
+  const prodWs = wb.Sheets[sheetName];
+  const prodRows = XLSX.utils.sheet_to_json<Record<string, string | number>>(prodWs, { defval: "" });
+
+  const locationCols = getLocationColumns(prodRows[0] ?? {});
+  console.log(`Detected ${locationCols.length} location columns in products sheet.`);
 
   const locationNameToId = new Map<string, number>();
   const BATCH = 50;
 
-  for (let i = 0; i < locationNames.length; i += BATCH) {
-    const batch = locationNames.slice(i, i + BATCH);
+  for (let i = 0; i < locationCols.length; i += BATCH) {
+    const batch = locationCols.slice(i, i + BATCH);
     const rows = await db
       .insert(locations)
       .values(batch.map((name) => ({ tenantId: tenant.id, name })))
@@ -90,12 +96,6 @@ export async function seedDatabase() {
   }
 
   console.log(`Inserted ${locationNameToId.size} locations.`);
-
-  const prodWs = wb.Sheets["ProductsImport"];
-  const prodRows = XLSX.utils.sheet_to_json<Record<string, string | number>>(prodWs, { defval: "" });
-
-  const locationCols = getLocationColumns(prodRows[0] ?? {});
-  console.log(`Detected ${locationCols.length} location columns in products sheet.`);
 
   const productValues = prodRows
     .map((r) => {
