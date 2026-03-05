@@ -42,7 +42,7 @@ app.use(express.urlencoded({ extended: false }));
 
 const PgSession = connectPgSimple(session);
 const pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-const cookieDomain = process.env.NODE_ENV === "production" ? (process.env.COOKIE_DOMAIN ?? undefined) : undefined;
+const CUSTOM_DOMAIN = process.env.COOKIE_DOMAIN ?? "planet4k.dev";
 
 app.use(
   session({
@@ -59,10 +59,22 @@ app.use(
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      ...(cookieDomain ? { domain: cookieDomain } : {}),
     },
   }),
 );
+
+app.use((req, _res, next) => {
+  if (req.session?.cookie) {
+    const hostname = req.hostname ?? "";
+    const isCustomDomain =
+      hostname === CUSTOM_DOMAIN ||
+      hostname.endsWith(`.${CUSTOM_DOMAIN}`);
+    req.session.cookie.domain = isCustomDomain
+      ? `.${CUSTOM_DOMAIN}`
+      : undefined;
+  }
+  next();
+});
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {

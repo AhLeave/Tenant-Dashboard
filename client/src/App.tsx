@@ -186,7 +186,7 @@ function AppContent() {
               <TenantLogo tenant={activeTenant} />
               {isSuperAdmin && !detectedSubdomain ? (
                 <Select
-                  value={activeTenantId.toString()}
+                  value={activeTenantId?.toString() ?? ""}
                   onValueChange={handleTenantChange}
                 >
                   <SelectTrigger className="w-[200px]" data-testid="select-tenant-switcher">

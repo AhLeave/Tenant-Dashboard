@@ -55,7 +55,9 @@ export async function registerRoutes(
   });
 
   app.get("/api/tenants/:tenantId/locations", async (req, res) => {
-    const locs = await storage.getLocationsByTenant(Number(req.params.tenantId));
+    const tenantId = Number(req.params.tenantId);
+    if (!tenantId || isNaN(tenantId)) return res.status(400).json({ message: "Invalid tenant ID" });
+    const locs = await storage.getLocationsByTenant(tenantId);
     res.json(locs);
   });
 
