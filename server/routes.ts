@@ -664,7 +664,13 @@ export async function registerRoutes(
       role: user.role,
       tenantId: user.tenantId ?? null,
     };
-    res.json({ id: user.id, email: user.email, role: user.role, tenantId: user.tenantId ?? null });
+    req.session.save((err) => {
+      if (err) {
+        console.error("Session save error:", err);
+        return res.status(500).json({ message: "Failed to create session." });
+      }
+      res.json({ id: user.id, email: user.email, role: user.role, tenantId: user.tenantId ?? null });
+    });
   });
 
   app.post("/api/auth/logout", (req, res) => {
