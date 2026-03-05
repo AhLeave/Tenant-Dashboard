@@ -21,6 +21,8 @@ declare module "express-session" {
 const app = express();
 const httpServer = createServer(app);
 
+app.set("trust proxy", 1);
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
@@ -39,7 +41,7 @@ app.use(express.urlencoded({ extended: false }));
 
 const PgSession = connectPgSimple(session);
 const pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-const cookieDomain = process.env.COOKIE_DOMAIN ?? undefined;
+const cookieDomain = process.env.NODE_ENV === "production" ? (process.env.COOKIE_DOMAIN ?? undefined) : undefined;
 
 app.use(
   session({

@@ -36,7 +36,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<AuthUser> => {
     const res = await apiRequest("POST", "/api/auth/login", { email, password });
-    const data: AuthUser = await res.json();
+    const data = await res.json().catch(() => null) as AuthUser | null;
+    if (!data?.id || !data?.email || !data?.role) {
+      throw new Error("Unexpected response from server. Please try again.");
+    }
     setUser(data);
     return data;
   };
