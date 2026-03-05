@@ -1,5 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import pg from "pg";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -35,16 +37,24 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+const PgSession = connectPgSimple(session);
+const pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const cookieDomain = process.env.COOKIE_DOMAIN ?? undefined;
 
 app.use(
   session({
+    store: new PgSession({
+      pool: pgPool,
+      tableName: "user_sessions",
+      createTableIfMissing: true,
+    }),
     secret: process.env.SESSION_SECRET || "dev-secret-key-change-in-prod",
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
       ...(cookieDomain ? { domain: cookieDomain } : {}),
     },
